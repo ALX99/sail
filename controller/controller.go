@@ -53,9 +53,6 @@ func (c *controller) commandLoop() {
 				c.m.Navigate(model.Bottom)
 			case cmd.MarkSelection:
 				c.m.MarkFile()
-			case cmd.Nil:
-				// No keybinding defined here
-				logger.LogMessage(id, "Nil command", logger.DEBUG)
 			default:
 				logger.LogMessage(id, "Not implemented", logger.DEBUG)
 			}
@@ -96,8 +93,7 @@ loop:
 				command, m = config.MatchCommand(k, m)
 
 				// Here we actually found a keybinding
-				if command != nil && m == nil {
-					logger.LogMessage(id, "ayy", logger.NORMAL)
+				if command != nil {
 					switch command.GetCommand() {
 					case cmd.Quit:
 						close(c.cmdChan)
@@ -166,7 +162,7 @@ func (c controller) parseCommand() (cmd.Command, error) {
 	if s[0] == "toggle" {
 		if len(s) < 2 {
 			// todo error
-			return cmd.Nil, nil
+			return nil, nil
 		}
 		if c, ok := cmd.ParseCommand(s[1]); ok {
 			return cmd.CreateBoolCommand(c), nil
@@ -174,7 +170,7 @@ func (c controller) parseCommand() (cmd.Command, error) {
 		// todo error
 
 	}
-	return cmd.Nil, nil
+	return nil, nil
 }
 
 // helper to set a value from a CommandBoolean

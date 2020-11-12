@@ -17,7 +17,7 @@ var keybindings = map[Key]KeyBinding{
 	keyToKey[tcell.KeyLeft]:  {cmd.MoveLeft, nil},
 	"i":                      {cmd.MoveRight, nil},
 	keyToKey[tcell.KeyRight]: {cmd.MoveRight, nil},
-	"g":                      {cmd.Nil, map[Key]KeyBinding{"g": {cmd.MoveTop, nil}}},
+	"g":                      {nil, map[Key]KeyBinding{"g": {cmd.MoveTop, nil}}},
 	"G":                      {cmd.MoveBottom, nil},
 	keyToKey[tcell.KeyEsc]:   {cmd.Quit, nil},
 	"q":                      {cmd.Quit, nil},
@@ -33,18 +33,13 @@ type KeyBinding struct {
 
 // MatchCommand returns a list of matches
 func MatchCommand(k Key, m map[Key]KeyBinding) (cmd.Command, map[Key]KeyBinding) {
-	mp := m
 	// If the received map is nil we'll
 	// query all defined keybindings
-	if mp == nil {
-		mp = keybindings
+	if m == nil {
+		m = keybindings
 	}
 
-	if mp[k].m == nil && mp[k].Command != nil {
-		return mp[k].Command, nil
-	}
-
-	return cmd.Nil, mp[k].m
+	return m[k].Command, m[k].m
 }
 
 // EventKeyToKey converts an EventKey to a Key

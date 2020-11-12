@@ -34,13 +34,13 @@ func TestMatchCommand(t *testing.T) {
 		{
 			"Check invalid binding",
 			args{"[", nil},
-			cmd.Nil,
+			nil,
 			nil,
 		},
 		{
 			"Check doublekey binding 1",
 			args{"g", nil},
-			cmd.Nil,
+			nil,
 			map[Key]KeyBinding{"g": {cmd.MoveTop, nil}},
 		},
 		{

@@ -2,8 +2,7 @@ package cmd
 
 // All defined commands that fly can handle
 const (
-	Nil Cmd = iota
-	MoveUp
+	MoveUp Cmd = iota
 	MoveDown
 	MoveLeft
 	MoveRight
