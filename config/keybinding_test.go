@@ -4,6 +4,7 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/alx99/fly/cmd"
 	"github.com/gdamore/tcell/v2"
 )
 
@@ -15,37 +16,37 @@ func TestMatchCommand(t *testing.T) {
 	tests := []struct {
 		name  string
 		args  args
-		want  Command
+		want  cmd.Command
 		want1 map[Key]KeyBinding
 	}{
 		{
 			"Check MoveUp 1",
 			args{"e", nil},
-			MoveUp,
+			cmd.MoveUp,
 			nil,
 		},
 		{
 			"Check MoveUp 2",
 			args{keyToKey[tcell.KeyUp], nil},
-			MoveUp,
+			cmd.MoveUp,
 			nil,
 		},
 		{
 			"Check invalid binding",
 			args{"[", nil},
-			Nil,
+			cmd.Nil,
 			nil,
 		},
 		{
 			"Check doublekey binding 1",
 			args{"g", nil},
-			Nil,
-			map[Key]KeyBinding{"g": {MoveTop, nil}},
+			cmd.Nil,
+			map[Key]KeyBinding{"g": {cmd.MoveTop, nil}},
 		},
 		{
 			"Check doublekey binding 2",
-			args{"g", map[Key]KeyBinding{"g": {MoveTop, nil}}},
-			MoveTop,
+			args{"g", map[Key]KeyBinding{"g": {cmd.MoveTop, nil}}},
+			cmd.MoveTop,
 			nil,
 		},
 	}
