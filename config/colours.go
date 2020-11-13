@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/alx99/fly/fs"
+	"github.com/alx99/fly/model/fs"
 	"github.com/alx99/fly/util"
 	"github.com/gdamore/tcell/v2"
 )

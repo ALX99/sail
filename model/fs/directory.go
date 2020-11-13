@@ -62,7 +62,7 @@ func (d Directory) CheckForParent() bool {
 }
 
 // GetParentDirectory returns the parent directory
-func (d Directory) GetParentDirectory() *Directory {
+func (d Directory) GetParentDirectory() Directory {
 	parentDir := filepath.Dir(d.path)
 	// Return empty directory if we're trying to
 	// get the parent from root directory
@@ -88,20 +88,20 @@ func (d Directory) GetParentDirectory() *Directory {
 }
 
 // GetDirectory returns the directory from the full path
-func GetDirectory(path string) *Directory {
+func GetDirectory(path string) Directory {
 	var files []File
 	fInfos, err := ioutil.ReadDir(path)
 	if err != nil {
-		return &Directory{path: path, err: err}
+		return Directory{path: path, err: err}
 	}
 
 	for _, fInfo := range fInfos {
 		files = append(files, createFile(fInfo))
 	}
-	return &Directory{path: path, files: files}
+	return Directory{path: path, files: files}
 }
 
 // GetEmptyDirectory returns an empty Directory
-func GetEmptyDirectory() *Directory {
-	return &Directory{}
+func GetEmptyDirectory() Directory {
+	return Directory{}
 }

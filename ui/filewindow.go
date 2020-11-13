@@ -2,8 +2,8 @@ package ui
 
 import (
 	"github.com/alx99/fly/config"
-	"github.com/alx99/fly/fs"
 	"github.com/alx99/fly/logger"
+	"github.com/alx99/fly/model/fs"
 	"github.com/alx99/fly/ui/pos"
 	"github.com/alx99/fly/util"
 	"github.com/gdamore/tcell/v2"
