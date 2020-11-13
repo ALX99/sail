@@ -1,6 +1,8 @@
 package ui
 
 import (
+	"sync"
+
 	"github.com/alx99/fly/config"
 	"github.com/alx99/fly/logger"
 	"github.com/alx99/fly/model"
@@ -14,17 +16,12 @@ const id = "TUI"
 // UI interface exposed to the controller
 type UI interface {
 	Shutdown()
-	// todo the Sync and Refresh method should not be exposed, the UI should always know when it needs to re-render itself without anything explicitly telling it to
-	Sync()
 	Refresh()
 	PollEvent() tcell.Event
-	Resize()
 	CloseMsgWindow()
 	ShowMessage(string)
 }
 
-// todo the tui should not really need access to the log
-// ? or maybe it should
 type ui struct {
 	screen           tcell.Screen
 	wd, pd, cd       *FileWindow
@@ -32,8 +29,13 @@ type ui struct {
 	msgWindowVisible bool
 	mw               *msgWindow
 
-	m   model.Model
-	cfg config.UI
+	m        model.Model
+	d        model.DirState
+	cfg      config.UI
+	shutdown *sync.WaitGroup
+
+	dirChange     chan model.DirState
+	settingChange chan config.UI
 }
 
 func (ui *ui) start() (UI, error) {
@@ -49,8 +51,9 @@ func (ui *ui) start() (UI, error) {
 	}
 
 	ui.screen = s
-
 	ui.initWindows()
+	go ui.onDirChange()
+	go ui.onSettingChange()
 	return ui, nil
 }
 
@@ -67,13 +70,8 @@ func (ui *ui) initWindows() {
 	ui.mw = createMsgWindow(pos.CreateArea(tmpCoord, tmpCoord, pos.CreatePadding(0, 0, 0, 0)), ui.screen)
 }
 
-func (ui ui) PollEvent() tcell.Event {
-	return ui.screen.PollEvent()
-}
-
-// todo should not be exported
-// Sync displays the new changes
-func (ui ui) Sync() {
+// sync displays the new changes
+func (ui ui) sync() {
 	// todo in the future every window should be responsible for clearing itself, and redrawing borders and stuff all the time won't be necessary
 	ui.screen.Clear()
 
@@ -89,9 +87,9 @@ func (ui ui) Sync() {
 		}
 	}
 
-	ui.pd.RenderDir(ui.m.GetPD(), ui.cfg)
-	ui.wd.RenderDir(ui.m.GetWD(), ui.cfg)
-	ui.cd.RenderDir(ui.m.GetCD(), ui.cfg)
+	ui.pd.RenderDir(ui.d.GetPD(), ui.cfg)
+	ui.wd.RenderDir(ui.d.GetWD(), ui.cfg)
+	ui.cd.RenderDir(ui.d.GetCD(), ui.cfg)
 
 	if ui.msgWindowVisible {
 		ui.mw.show()
@@ -104,13 +102,29 @@ func (ui ui) Refresh() {
 	ui.screen.Sync()
 }
 
+// Pollevent polls an event from the user (not a resize event)
+func (ui *ui) PollEvent() tcell.Event {
+	e := ui.screen.PollEvent()
+
+	switch e.(type) {
+	case *tcell.EventResize:
+		ui.resize()
+	default:
+		return e
+	}
+	return nil
+}
+
 func (ui ui) Shutdown() {
 	logger.LogMessage(id, "Shutting down", logger.DEBUG)
+	close(ui.dirChange)
+	close(ui.settingChange)
+	ui.shutdown.Wait()
 	ui.screen.Clear()
 	ui.screen.Fini()
 }
 
-func (ui *ui) Resize() {
+func (ui *ui) resize() {
 	w, h := ui.screen.Size()
 	// These last x and y can't be rendered on
 	w--
@@ -154,6 +168,7 @@ func (ui *ui) Resize() {
 	ui.wd.SetPos(pos.NewCoord(wdStart, yStart), pos.NewCoord(cdStart-1, h))
 	ui.cd.SetPos(pos.NewCoord(cdStart, yStart), pos.NewCoord(w, h))
 
+	ui.sync()
 }
 
 func (ui *ui) CloseMsgWindow() {
@@ -161,25 +176,48 @@ func (ui *ui) CloseMsgWindow() {
 	// We have to resize here since we have
 	// to recalculate where filewindows start
 	// and end
-	ui.Resize()
+	ui.resize()
 }
 func (ui *ui) ShowMessage(msg string) {
+	ui.mw.setMessage(msg)
 	if !ui.msgWindowVisible {
 		ui.msgWindowVisible = true
-		ui.Resize()
+		ui.resize()
+	} else {
+		ui.sync()
 	}
-	ui.mw.setMessage(msg)
 }
 
-func (ui *ui) uiChange(cfg config.UI) {
-	ui.cfg = cfg
-	ui.Resize()
+func (ui *ui) onSettingChange() {
+	ui.shutdown.Add(1)
+	for cfg := range ui.settingChange {
+		ui.cfg = cfg
+		ui.resize()
+	}
+	ui.shutdown.Done()
+}
+
+func (ui *ui) onDirChange() {
+	ui.shutdown.Add(1)
+	for d := range ui.dirChange {
+		ui.d = d
+		ui.sync()
+	}
+	ui.shutdown.Done()
 }
 
 // Start starts up the UI
 func Start(m model.Model) (UI, error) {
 	ui := ui{m: m, cfg: config.GetConfig().UI}
-	config.AttachConfigObserver(ui.uiChange)
+
+	// setup chans
+	ui.dirChange = make(chan model.DirState, 10)
+	ui.settingChange = make(chan config.UI, 10)
+
+	ui.shutdown = &sync.WaitGroup{}
+
+	config.AddConfigObserver(ui.settingChange)
+	m.AddDirObserver(ui.dirChange)
 	return ui.start()
 }
 

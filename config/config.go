@@ -1,16 +1,18 @@
 package config
 
-import "github.com/gdamore/tcell/v2"
+import (
+	"github.com/gdamore/tcell/v2"
+)
 
 const id = "CFG"
 
-// UIConfigObserver is a function that
+// uiConfigObserver is a function that
 // will be called after changes to the UI config
-type UIConfigObserver func(UI)
+type uiConfigObserver chan<- UI
 
 // Global Config variable
 var cfg Config
-var listeners []UIConfigObserver
+var uiConfObservers []uiConfigObserver
 
 // Config holds all the settings for fly
 type Config struct {
@@ -33,7 +35,6 @@ type UI struct {
 
 // todo read config file
 func init() {
-	listeners = make([]UIConfigObserver, 0)
 	cfg.UI.PDRatio = 1.0
 	cfg.UI.WDRatio = 2.0
 	cfg.UI.CDRatio = 3.0
@@ -56,13 +57,17 @@ func GetConfig() Config {
 // SetUIConfig sets the UI config
 func SetUIConfig(uiConfig UI) {
 	cfg.UI = uiConfig
-	for _, o := range listeners {
-		o(cfg.UI)
+
+	// Notify observers
+	for _, o := range uiConfObservers {
+		o <- cfg.UI
 	}
 }
 
-// AttachConfigObserver will attach an observer
+// AddConfigObserver will attach an observer
 // that'll listen in on changes to the UI config
-func AttachConfigObserver(observer UIConfigObserver) {
-	listeners = append(listeners, observer)
+func AddConfigObserver(o uiConfigObserver) {
+	uiConfObservers = append(uiConfObservers, o)
+	// Notify them of the current config state
+	o <- cfg.UI
 }

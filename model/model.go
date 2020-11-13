@@ -10,20 +10,20 @@ import (
 // Logger identifier
 const id = "MDL"
 
+type dirObserver chan<- DirState
+
 // todo notify loading so it can display loading indicator?
 
 // Model model controls exposed to the controller
 type Model interface {
 	Navigate(d Direction)
-	GetCD() fs.Directory
-	GetWD() fs.Directory
-	GetPD() fs.Directory
 	MarkFile()
+	AddDirObserver(dirObserver)
 }
 
 // CreateModel creates a new model
 func CreateModel() (Model, error) {
-	m := model{DirState{}}
+	m := model{d: DirState{}}
 	if err := m.start(); err != nil {
 		return nil, err
 	}
@@ -32,7 +32,8 @@ func CreateModel() (Model, error) {
 
 // ? Do we want to cache more directories than just those displayed
 type model struct {
-	d DirState
+	d         DirState
+	observers []dirObserver
 }
 
 func (m *model) start() error {
@@ -99,21 +100,24 @@ func (m *model) Navigate(d Direction) {
 		m.d.wd.SetSelection(m.d.wd.GetFileCount() - 1)
 		m.setCD()
 	}
-
+	m.notifyObservers()
 }
 
 func (m model) MarkFile() {
 	logger.LogMessage(id, "Marked "+m.d.wd.GetSelectedFile().GetFileInfo().Name(), logger.DEBUG)
 	m.d.wd.ToggleMarked()
 	m.Navigate(Down)
+	m.notifyObservers()
 }
 
-func (m model) GetCD() fs.Directory {
-	return m.d.cd
+func (m *model) AddDirObserver(o dirObserver) {
+	m.observers = append(m.observers, o)
+	// Notify them of the current dirstate
+	o <- m.d
 }
-func (m model) GetWD() fs.Directory {
-	return m.d.wd
-}
-func (m model) GetPD() fs.Directory {
-	return m.d.pd
+
+func (m model) notifyObservers() {
+	for _, o := range m.observers {
+		o <- m.d
+	}
 }

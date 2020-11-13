@@ -72,7 +72,6 @@ func (c *controller) commandLoop() {
 			}
 			config.SetUIConfig(cfg.UI)
 		}
-		c.ui.Sync()
 	}
 	c.shutDown.Done()
 }
@@ -82,11 +81,11 @@ func (c *controller) eventLoop() {
 
 loop:
 	for {
-		switch e := c.ui.PollEvent().(type) {
-		case *tcell.EventResize:
-			c.ui.Resize()
-			c.ui.Sync()
-
+		ev := c.ui.PollEvent()
+		if ev == nil {
+			continue
+		}
+		switch e := ev.(type) {
 		case *tcell.EventKey:
 			k := config.EventKeyToKey(e)
 			if !c.msgWindowFocus {
@@ -106,7 +105,6 @@ loop:
 						if !c.msgWindowFocus {
 							c.commandBuffer = ":"
 							c.ui.ShowMessage(c.commandBuffer)
-							c.ui.Sync()
 						}
 						c.msgWindowFocus = !c.msgWindowFocus
 					default:
@@ -141,7 +139,6 @@ loop:
 					c.commandBuffer += k.String()
 					c.ui.ShowMessage(c.commandBuffer)
 				}
-				c.ui.Sync()
 			}
 		case *tcell.EventInterrupt:
 			logger.LogMessage(id, "eventinterrupt NOT IMPLEMENTED", logger.NORMAL)
