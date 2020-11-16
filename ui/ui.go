@@ -13,13 +13,24 @@ import (
 // UI log identifier
 const id = "TUI"
 
+// Message is a message that the UI can display
+type Message struct {
+	m     string
+	isErr bool
+}
+
+// CreateMessage creates a message
+func CreateMessage(msg string, isErr bool) Message {
+	return Message{m: msg, isErr: isErr}
+}
+
 // UI interface exposed to the controller
 type UI interface {
 	Shutdown()
 	Refresh()
 	PollEvent() tcell.Event
 	CloseMsgWindow()
-	ShowMessage(string)
+	GetMessageChan() chan<- Message
 }
 
 type ui struct {
@@ -29,13 +40,15 @@ type ui struct {
 	msgWindowVisible bool
 	mw               *msgWindow
 
-	m        model.Model
 	d        model.DirState
 	cfg      config.UI
 	shutdown *sync.WaitGroup
 
 	dirChange     chan model.DirState
 	settingChange chan config.UI
+	messageChan   chan Message
+
+	resizeLock sync.Mutex
 }
 
 func (ui *ui) start() (UI, error) {
@@ -54,6 +67,7 @@ func (ui *ui) start() (UI, error) {
 	ui.initWindows()
 	go ui.onDirChange()
 	go ui.onSettingChange()
+	go ui.messageHandler()
 	return ui, nil
 }
 
@@ -87,9 +101,9 @@ func (ui ui) sync() {
 		}
 	}
 
-	ui.pd.RenderDir(ui.d.GetPD(), ui.cfg)
-	ui.wd.RenderDir(ui.d.GetWD(), ui.cfg)
-	ui.cd.RenderDir(ui.d.GetCD(), ui.cfg)
+	ui.pd.RenderDir(ui.d.GetPD(), ui.messageChan, ui.cfg)
+	ui.wd.RenderDir(ui.d.GetWD(), ui.messageChan, ui.cfg)
+	ui.cd.RenderDir(ui.d.GetCD(), ui.messageChan, ui.cfg)
 
 	if ui.msgWindowVisible {
 		ui.mw.show()
@@ -125,6 +139,7 @@ func (ui ui) Shutdown() {
 }
 
 func (ui *ui) resize() {
+	ui.resizeLock.Lock()
 	w, h := ui.screen.Size()
 	// These last x and y can't be rendered on
 	w--
@@ -168,6 +183,7 @@ func (ui *ui) resize() {
 	ui.wd.SetPos(pos.NewCoord(wdStart, yStart), pos.NewCoord(cdStart-1, h))
 	ui.cd.SetPos(pos.NewCoord(cdStart, yStart), pos.NewCoord(w, h))
 
+	ui.resizeLock.Unlock()
 	ui.sync()
 }
 
@@ -178,14 +194,24 @@ func (ui *ui) CloseMsgWindow() {
 	// and end
 	ui.resize()
 }
-func (ui *ui) ShowMessage(msg string) {
-	ui.mw.setMessage(msg)
-	if !ui.msgWindowVisible {
-		ui.msgWindowVisible = true
-		ui.resize()
-	} else {
-		ui.sync()
+func (ui *ui) messageHandler() {
+	for msg := range ui.messageChan {
+		if !msg.isErr {
+			ui.mw.setMessage(msg.m, tcell.StyleDefault)
+		} else {
+			ui.mw.setMessage(msg.m, tcell.StyleDefault.Foreground(tcell.ColorRed))
+		}
+		if !ui.msgWindowVisible {
+			ui.msgWindowVisible = true
+			ui.resize()
+		} else {
+			ui.sync()
+		}
 	}
+}
+
+func (ui ui) GetMessageChan() chan<- Message {
+	return ui.messageChan
 }
 
 func (ui *ui) onSettingChange() {
@@ -208,11 +234,12 @@ func (ui *ui) onDirChange() {
 
 // Start starts up the UI
 func Start(m model.Model) (UI, error) {
-	ui := ui{m: m, cfg: config.GetConfig().UI}
+	ui := ui{cfg: config.GetConfig().UI}
 
 	// setup chans
 	ui.dirChange = make(chan model.DirState, 10)
 	ui.settingChange = make(chan config.UI, 10)
+	ui.messageChan = make(chan Message, 10)
 
 	ui.shutdown = &sync.WaitGroup{}
 

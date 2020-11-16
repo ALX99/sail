@@ -2,7 +2,6 @@ package ui
 
 import (
 	"github.com/alx99/fly/config"
-	"github.com/alx99/fly/logger"
 	"github.com/alx99/fly/model/fs"
 	"github.com/alx99/fly/ui/pos"
 	"github.com/alx99/fly/util"
@@ -27,11 +26,10 @@ func (fw *FileWindow) SetPos(start, end pos.Coord) {
 }
 
 // RenderDir renders a directory
-func (fw *FileWindow) RenderDir(d fs.Directory, c config.UI) {
+func (fw *FileWindow) RenderDir(d fs.Directory, mChan chan<- Message, c config.UI) {
 	files, err := d.GetFiles()
 	if err != nil {
-		// todo render error somehow
-		logger.LogError(id, "FW error", err)
+		mChan <- CreateMessage(err.Error(), true)
 		return
 	}
 

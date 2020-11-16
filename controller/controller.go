@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"errors"
 	"strings"
 	"sync"
 
@@ -19,6 +20,7 @@ type controller struct {
 	m  model.Model
 
 	cmdChan        chan cmd.Command
+	uiMessageChan  chan<- ui.Message
 	commandBuffer  string
 	msgWindowFocus bool
 	shutDown       *sync.WaitGroup
@@ -28,6 +30,7 @@ type controller struct {
 func Start(ui ui.UI, m model.Model) {
 	c := controller{ui: ui, m: m, cmdChan: make(chan cmd.Command, 10), shutDown: &sync.WaitGroup{}}
 	logger.LogMessage(id, "Started", logger.DEBUG)
+	c.uiMessageChan = ui.GetMessageChan()
 
 	go c.commandLoop()
 	c.eventLoop()
@@ -104,7 +107,7 @@ loop:
 						// We need to do this since the commandLoop runs in another goroutine
 						if !c.msgWindowFocus {
 							c.commandBuffer = ":"
-							c.ui.ShowMessage(c.commandBuffer)
+							c.uiMessageChan <- ui.CreateMessage(c.commandBuffer, false)
 						}
 						c.msgWindowFocus = !c.msgWindowFocus
 					default:
@@ -120,15 +123,15 @@ loop:
 					c.commandBuffer = ""
 				case tK == tcell.KeyBackspace2 || tK == tcell.KeyBackspace:
 					c.commandBuffer = c.commandBuffer[:len(c.commandBuffer)-1]
-					c.ui.ShowMessage(c.commandBuffer)
+					c.uiMessageChan <- ui.CreateMessage(c.commandBuffer, false)
 					if c.commandBuffer == "" {
 						c.ui.CloseMsgWindow()
 						c.msgWindowFocus = false
 					}
 				case tK == tcell.KeyEnter:
-					cmd, err := c.parseCommand()
+					cmd, err := parseCommand(c.commandBuffer[1:])
 					if err != nil {
-						// todo show error
+						c.uiMessageChan <- ui.CreateMessage(err.Error(), true)
 					} else {
 						c.cmdChan <- cmd
 					}
@@ -137,7 +140,7 @@ loop:
 					c.commandBuffer = ""
 				default:
 					c.commandBuffer += k.String()
-					c.ui.ShowMessage(c.commandBuffer)
+					c.uiMessageChan <- ui.CreateMessage(c.commandBuffer, false)
 				}
 			}
 		case *tcell.EventInterrupt:
@@ -154,18 +157,16 @@ loop:
 	logger.Shutdown()
 }
 
-func (c controller) parseCommand() (cmd.Command, error) {
-	s := strings.Split(c.commandBuffer[1:], " ")
+func parseCommand(command string) (cmd.Command, error) {
+	s := strings.Split(command, " ")
 	if s[0] == "toggle" {
 		if len(s) < 2 {
-			// todo error
-			return nil, nil
+			return nil, errors.New("Too few arguments")
 		}
 		if c, ok := cmd.ParseCommand(s[1]); ok {
 			return cmd.CreateBoolCommand(c), nil
 		}
-		// todo error
-
+		return nil, errors.New("Command '" + s[1] + "' not found!")
 	}
 	return nil, nil
 }
