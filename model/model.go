@@ -103,11 +103,10 @@ func (m *model) Navigate(d Direction) {
 	m.notifyObservers()
 }
 
-func (m model) MarkFile() {
+func (m *model) MarkFile() {
 	logger.LogMessage(id, "Marked "+m.d.wd.GetSelectedFile().GetFileInfo().Name(), logger.DEBUG)
 	m.d.wd.ToggleMarked()
 	m.Navigate(Down)
-	m.notifyObservers()
 }
 
 func (m *model) AddDirObserver(o dirObserver) {
