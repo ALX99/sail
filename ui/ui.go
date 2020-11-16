@@ -65,9 +65,8 @@ func (ui *ui) start() (UI, error) {
 
 	ui.screen = s
 	ui.initWindows()
+	go ui.eventHandler()
 	go ui.onDirChange()
-	go ui.onSettingChange()
-	go ui.messageHandler()
 	return ui, nil
 }
 
@@ -133,6 +132,7 @@ func (ui ui) Shutdown() {
 	logger.LogMessage(id, "Shutting down", logger.DEBUG)
 	close(ui.dirChange)
 	close(ui.settingChange)
+	close(ui.messageChan)
 	ui.shutdown.Wait()
 	ui.screen.Clear()
 	ui.screen.Fini()
@@ -214,20 +214,45 @@ func (ui ui) GetMessageChan() chan<- Message {
 	return ui.messageChan
 }
 
-func (ui *ui) onSettingChange() {
-	ui.shutdown.Add(1)
-	for cfg := range ui.settingChange {
-		ui.cfg = cfg
-		ui.resize()
-	}
-	ui.shutdown.Done()
-}
-
 func (ui *ui) onDirChange() {
 	ui.shutdown.Add(1)
 	for d := range ui.dirChange {
 		ui.d = d
 		ui.sync()
+	}
+	ui.shutdown.Done()
+}
+
+func (ui *ui) eventHandler() {
+	ui.shutdown.Add(1)
+	for {
+		select {
+		case cfg, ok := <-ui.settingChange:
+			if !ok {
+				ui.settingChange = nil
+			}
+			ui.cfg = cfg
+			ui.resize()
+		case msg, ok := <-ui.messageChan:
+			if !ok {
+				ui.messageChan = nil
+			}
+			if !msg.isErr {
+				ui.mw.setMessage(msg.m, tcell.StyleDefault)
+			} else {
+				ui.mw.setMessage(msg.m, tcell.StyleDefault.Foreground(tcell.ColorRed))
+			}
+			if !ui.msgWindowVisible {
+				ui.msgWindowVisible = true
+				ui.resize()
+			} else {
+				ui.sync()
+			}
+		}
+
+		if ui.settingChange == nil && ui.messageChan == nil {
+			break
+		}
 	}
 	ui.shutdown.Done()
 }
