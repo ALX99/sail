@@ -78,9 +78,13 @@ func (c *controller) commandLoop() {
 	}
 	c.shutDown.Done()
 }
+func (c *controller) handleKey(k config.Key) {
+
+}
 func (c *controller) eventLoop() {
 	var m map[config.Key]config.KeyBinding
 	var command cmd.Command
+	kBuffer := ""
 
 loop:
 	for {
@@ -93,9 +97,12 @@ loop:
 			k := config.EventKeyToKey(e)
 			if !c.msgWindowFocus {
 				command, m = config.MatchCommand(k, m)
+				kBuffer += k.String()
 
 				// Here we actually found a keybinding
 				if command != nil {
+					kBuffer = ""
+					// Below are commands that need to be handled immediately
 					switch command.GetCommand() {
 					case cmd.Quit:
 						close(c.cmdChan)
@@ -103,8 +110,6 @@ loop:
 						c.ui.Shutdown()
 						break loop
 					case cmd.ToggleCommandMenu:
-						// The reason this is toggled here is to avoid subsequent keypresses after a ToggleCommandMenu command being interpreted as a keybinding instead of the key going to the commandbuffer.
-						// We need to do this since the commandLoop runs in another goroutine
 						if !c.msgWindowFocus {
 							c.commandBuffer = ":"
 							c.uiMessageChan <- ui.CreateMessage(c.commandBuffer, false)
@@ -113,6 +118,9 @@ loop:
 					default:
 						c.cmdChan <- command
 					}
+				} else if m == nil {
+					c.uiMessageChan <- ui.CreateMessage("Sequence '"+kBuffer+"' is unmapped", true)
+					kBuffer = ""
 				}
 			} else {
 				tK := e.Key()
