@@ -1,7 +1,6 @@
 package fs
 
 // todo different ways to sort files
-// todo currently the UI has access to the whole of Directory structure including the setter method, it should only use an interface
 import (
 	"io/ioutil"
 	"path/filepath"
@@ -13,6 +12,12 @@ type Directory struct {
 	files     []File
 	selection int
 	err       error
+	empty     bool
+}
+
+// IsEmpty checks if the directory is empty
+func (d Directory) IsEmpty() bool {
+	return len(d.files) == 0
 }
 
 // GetSelection returns the index of the currently selected file
@@ -61,30 +66,14 @@ func (d Directory) CheckForParent() bool {
 	return d.path != filepath.Dir(d.path)
 }
 
-// GetParentDirectory returns the parent directory
-func (d Directory) GetParentDirectory() Directory {
-	parentDir := filepath.Dir(d.path)
-	// Return empty directory if we're trying to
-	// get the parent from root directory
-	if parentDir == d.path {
-		return GetEmptyDirectory()
-	}
-	nD := GetDirectory(parentDir)
-
-	// Set the right selection
-	selectionName := filepath.Base(d.path)
-	if files, err := nD.GetFiles(); err == nil {
-		for i, f := range files {
-			if !f.f.IsDir() {
-				continue
-			}
-			if f.f.Name() == selectionName {
-				nD.selection = i
-				return nD
-			}
+// SetSelectedFile sets selection based on filename
+func (d *Directory) SetSelectedFile(filename string) {
+	for i, f := range d.files {
+		if f.f.Name() == filename {
+			d.selection = i
+			break
 		}
 	}
-	return nD
 }
 
 // GetDirectory returns the directory from the full path
@@ -103,5 +92,5 @@ func GetDirectory(path string) Directory {
 
 // GetEmptyDirectory returns an empty Directory
 func GetEmptyDirectory() Directory {
-	return Directory{}
+	return Directory{files: []File{}}
 }
