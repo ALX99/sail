@@ -162,6 +162,10 @@ func (m model) cacheDir(d fs.Directory) {
 func (m model) getDir(path string) fs.Directory {
 	if d, ok := m.dirCache[path]; ok {
 		logger.LogMessage(id, "Cache hit: "+d.GetPath(), logger.DEBUG)
+		if i, err := os.Stat(path); err == nil && i.ModTime().After(d.GetQueryTime()) {
+			logger.LogMessage(id, "Refreshing: "+d.GetPath(), logger.DEBUG)
+			d.Refresh()
+		}
 		return *d
 	}
 	return fs.GetDirectory(path)

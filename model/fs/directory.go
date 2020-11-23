@@ -4,6 +4,7 @@ package fs
 import (
 	"io/ioutil"
 	"path/filepath"
+	"time"
 )
 
 // Directory represents a directory in the filesystem
@@ -12,7 +13,7 @@ type Directory struct {
 	files     []File
 	selection int
 	err       error
-	empty     bool
+	queried   time.Time
 }
 
 // IsEmpty checks if the directory is empty
@@ -87,10 +88,58 @@ func GetDirectory(path string) Directory {
 	for _, fInfo := range fInfos {
 		files = append(files, createFile(fInfo))
 	}
-	return Directory{path: path, files: files}
+	return Directory{path: path, files: files, queried: time.Now()}
 }
 
 // GetEmptyDirectory returns an empty Directory
 func GetEmptyDirectory() Directory {
 	return Directory{files: []File{}}
+}
+
+// GetQueryTime retrieves the time the fs was queried
+func (d Directory) GetQueryTime() time.Time {
+	return d.queried
+}
+
+// getMarkedFiles retries the marked filenames
+func (d Directory) getMarkedFiles() []string {
+	var marks []string
+	for _, f := range d.files {
+		if f.marked {
+			marks = append(marks, f.f.Name())
+		}
+	}
+	return marks
+}
+
+// Refresh refreshes the filelist
+func (d *Directory) Refresh() {
+	d.queried = time.Now()
+	var files []File
+	fInfos, err := ioutil.ReadDir(d.path)
+	if err != nil {
+		d.err = err
+		return
+	}
+
+	for _, fInfo := range fInfos {
+		files = append(files, createFile(fInfo))
+	}
+	marks := d.getMarkedFiles()
+	sel := d.GetSelectedFile().f.Name()
+	d.files = files
+	d.setMarkedFiles(marks)
+	d.SetSelectedFile(sel)
+}
+
+// setMarkedFiles sets the marked files
+func (d *Directory) setMarkedFiles(filename []string) {
+	for i, f := range d.files {
+		for _, fn := range filename {
+			if f.f.Name() == fn {
+				d.files[i].marked = true
+				break
+			}
+		}
+	}
 }
