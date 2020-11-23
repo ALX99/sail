@@ -9,11 +9,12 @@ import (
 
 // Directory represents a directory in the filesystem
 type Directory struct {
-	path      string
-	files     []File
-	selection int
-	err       error
-	queried   time.Time
+	path       string
+	files      []File
+	selection  int
+	err        error
+	queried    time.Time
+	hideHidden bool
 }
 
 // IsEmpty checks if the directory is empty
@@ -73,7 +74,7 @@ func (d *Directory) SetSelectedFile(filename string) {
 }
 
 // GetDirectory returns the directory from the full path
-func GetDirectory(path string) Directory {
+func GetDirectory(path string, hideHidden bool) Directory {
 	var files []File
 	fInfos, err := ioutil.ReadDir(path)
 	if err != nil {
@@ -83,7 +84,11 @@ func GetDirectory(path string) Directory {
 	for _, fInfo := range fInfos {
 		files = append(files, createFile(fInfo))
 	}
-	return Directory{path: path, files: files, queried: time.Now()}
+	d := Directory{path: path, files: files, queried: time.Now()}
+	if hideHidden {
+		d.SetShowHidden(hideHidden)
+	}
+	return d
 }
 
 // GetEmptyDirectory returns an empty Directory
@@ -169,15 +174,20 @@ func (d *Directory) MarkTop() {
 	d.SetNextSelection()
 }
 
-// ToggleHiddenInvis toggles the insvisible
+// SetShowHidden sets the insvisible
 // field on hidden files
-func (d *Directory) ToggleHiddenInvis() {
+func (d *Directory) SetShowHidden(b bool) {
+	// Avoid unnecessary loops
+	if d.hideHidden == b {
+		return
+	}
 	for i := 0; i < len(d.files); i++ {
 		if d.files[i].f.Name()[0:1] == "." {
-			d.files[i].invis = !d.files[i].invis
+			d.files[i].invis = b
 		}
 	}
 	if !d.IsEmpty() && d.files[d.selection].invis {
 		d.SetNextSelection()
 	}
+	d.hideHidden = b
 }

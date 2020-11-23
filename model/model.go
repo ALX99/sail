@@ -34,9 +34,10 @@ func CreateModel() (Model, error) {
 
 // ? Do we want to cache more directories than just those displayed
 type model struct {
-	d         DirState
-	observers []dirObserver
-	dirCache  map[string]*fs.Directory
+	d          DirState
+	observers  []dirObserver
+	dirCache   map[string]*fs.Directory
+	hideHidden bool
 }
 
 func (m *model) start() error {
@@ -46,8 +47,8 @@ func (m *model) start() error {
 		logger.LogError(id, "Failed to get initial wd", err)
 		return err
 	}
-	m.d.wd = fs.GetDirectory(wd)
-	m.d.pd = fs.GetDirectory(filepath.Dir(m.d.wd.GetPath()))
+	m.d.wd = fs.GetDirectory(wd, m.hideHidden)
+	m.d.pd = fs.GetDirectory(filepath.Dir(m.d.wd.GetPath()), m.hideHidden)
 	m.d.pd.SetSelectedFile(filepath.Base(m.d.wd.GetPath()))
 	m.setCD()
 	return nil
@@ -88,9 +89,10 @@ func (m *model) setCD() {
 }
 
 func (m *model) ToggleShowHidden() {
-	m.d.cd.ToggleHiddenInvis()
-	m.d.wd.ToggleHiddenInvis()
-	m.d.pd.ToggleHiddenInvis()
+	m.hideHidden = !m.hideHidden
+	m.d.cd.SetShowHidden(m.hideHidden)
+	m.d.wd.SetShowHidden(m.hideHidden)
+	m.d.pd.SetShowHidden(m.hideHidden)
 	m.notifyObservers()
 }
 
@@ -170,11 +172,12 @@ func (m model) cacheDir(d fs.Directory) {
 func (m model) getDir(path string) fs.Directory {
 	if d, ok := m.dirCache[path]; ok {
 		logger.LogMessage(id, "Cache hit: "+d.GetPath(), logger.DEBUG)
+		d.SetShowHidden(m.hideHidden)
 		if i, err := os.Stat(path); err == nil && i.ModTime().After(d.GetQueryTime()) {
 			logger.LogMessage(id, "Refreshing: "+d.GetPath(), logger.DEBUG)
 			d.Refresh()
 		}
 		return *d
 	}
-	return fs.GetDirectory(path)
+	return fs.GetDirectory(path, m.hideHidden)
 }

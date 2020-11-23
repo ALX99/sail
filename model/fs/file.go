@@ -29,7 +29,7 @@ func (f File) CheckMarked() bool {
 }
 
 // CheckInvis checks if the file
-// is marked as invinsible
+// is marked as invisible
 func (f File) CheckInvis() bool {
 	return f.invis
 }
