@@ -11,6 +11,7 @@ const (
 	Quit
 	MarkSelection
 	ToggleCommandMenu
+	ToggleShowHidden
 
 	DirCandy
 	DrawBox

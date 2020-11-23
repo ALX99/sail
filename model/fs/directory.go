@@ -49,11 +49,6 @@ func (d Directory) ToggleMarked() {
 	d.files[d.selection].marked = !d.files[d.selection].marked
 }
 
-// GetFileCount returns the amount of files in the directory
-func (d Directory) GetFileCount() int {
-	return len(d.files)
-}
-
 // GetFiles returns the files inside the directory
 func (d Directory) GetFiles() ([]File, error) {
 	if d.err != nil {
@@ -141,5 +136,48 @@ func (d *Directory) setMarkedFiles(filename []string) {
 				break
 			}
 		}
+	}
+}
+
+// SetNextSelection selects the next file
+func (d *Directory) SetNextSelection() {
+	fCount := len(d.files)
+	d.selection = (d.selection + 1) % fCount
+	for d.files[d.selection].invis {
+		d.selection = (d.selection + 1) % fCount
+	}
+}
+
+// SetPrevSelection selects the previous file
+func (d *Directory) SetPrevSelection() {
+	fCount := len(d.files)
+	d.selection = (d.selection - 1 + fCount) % fCount
+	for d.files[d.selection].invis {
+		d.selection = (d.selection - 1 + fCount) % fCount
+	}
+}
+
+// MarkBottom marks the last non invisible file
+func (d *Directory) MarkBottom() {
+	d.selection = 0
+	d.SetPrevSelection()
+}
+
+// MarkTop marks the first non invisible file
+func (d *Directory) MarkTop() {
+	d.selection = len(d.files) - 1
+	d.SetNextSelection()
+}
+
+// ToggleHiddenInvis toggles the insvisible
+// field on hidden files
+func (d *Directory) ToggleHiddenInvis() {
+	for i := 0; i < len(d.files); i++ {
+		if d.files[i].f.Name()[0:1] == "." {
+			d.files[i].invis = !d.files[i].invis
+		}
+	}
+	if !d.IsEmpty() && d.files[d.selection].invis {
+		d.SetNextSelection()
 	}
 }

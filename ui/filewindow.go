@@ -37,7 +37,6 @@ func (fw *FileWindow) RenderDir(d fs.Directory, mChan chan<- Message, c config.U
 	ym := fw.a.GetYMax()
 	xs := fw.a.GetXStart()
 	ys := fw.a.GetYStart()
-	fCount := d.GetFileCount()
 	sel := d.GetSelection()
 
 	// Offset the files displayed if the selection can't
@@ -46,8 +45,14 @@ func (fw *FileWindow) RenderDir(d fs.Directory, mChan chan<- Message, c config.U
 		fileOffset += ym + 1
 	}
 
-	for i, x := 0, xs; i <= ym && i+fileOffset < fCount; i, x = i+1, xs {
-		f := files[i+fileOffset]
+	s := 0
+	for i, f := range files {
+		// Don't render "invisible" files
+		if f.CheckInvis() {
+			s++
+			continue
+		}
+		x := xs
 		fName := f.GetFileInfo().Name()
 		fLen := len(fName)
 		fStyle := config.GetStyle(f)
@@ -66,9 +71,9 @@ func (fw *FileWindow) RenderDir(d fs.Directory, mChan chan<- Message, c config.U
 			fStyle = fStyle.Underline(true).Italic(true).Bold(true)
 			if c.IndentMarks {
 				if c.Rainbow {
-					fw.s.SetContent(x, ys+i, '+', nil, tcell.StyleDefault.Foreground(fg))
+					fw.s.SetContent(x, ys+i-s, '+', nil, tcell.StyleDefault.Foreground(fg))
 				} else {
-					fw.s.SetContent(x, ys+i, '+', nil, tcell.StyleDefault)
+					fw.s.SetContent(x, ys+i-s, '+', nil, tcell.StyleDefault)
 				}
 				// fw.s.SetContent(x, ys+i, ' ', nil, fStyle.Background(fg))
 			}
@@ -83,15 +88,15 @@ func (fw *FileWindow) RenderDir(d fs.Directory, mChan chan<- Message, c config.U
 		limit := util.Min(localXMax, fLen-1)
 		j := 0
 		for _ = 0; j <= limit; j, x = j+1, x+1 {
-			fw.s.SetContent(x, ys+i, rune(fName[j]), nil, fStyle)
+			fw.s.SetContent(x, ys+i-s, rune(fName[j]), nil, fStyle)
 		}
 
 		if j < fLen {
 			// Did not manage to render full filename
-			fw.s.SetContent(x-1, ys+i, '~', nil, fStyle)
+			fw.s.SetContent(x-1, ys+i-s, '~', nil, fStyle)
 		} else if c.DirCandy && f.GetFileInfo().IsDir() && j-1 < localXMax {
 			// If extra space is available
-			fw.s.SetContent(x, ys+i, '/', nil, tcell.StyleDefault)
+			fw.s.SetContent(x, ys+i-s, '/', nil, tcell.StyleDefault)
 		}
 	}
 }

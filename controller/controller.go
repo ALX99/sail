@@ -56,6 +56,8 @@ func (c *controller) commandLoop() {
 				c.m.Navigate(model.Bottom)
 			case cmd.MarkSelection:
 				c.m.MarkFile()
+			case cmd.ToggleShowHidden:
+				c.m.ToggleShowHidden()
 			default:
 				logger.LogMessage(id, "Not implemented", logger.DEBUG)
 			}

@@ -23,6 +23,7 @@ var keybindings = map[Key]KeyBinding{
 	"q":                      {cmd.Quit, nil},
 	" ":                      {cmd.MarkSelection, nil},
 	":":                      {cmd.ToggleCommandMenu, nil},
+	".":                      {cmd.ToggleShowHidden, nil},
 }
 
 // KeyBinding maps keys to commands

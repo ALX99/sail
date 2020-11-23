@@ -20,6 +20,7 @@ type Model interface {
 	Navigate(d Direction)
 	MarkFile()
 	AddDirObserver(dirObserver)
+	ToggleShowHidden()
 }
 
 // CreateModel creates a new model
@@ -86,6 +87,13 @@ func (m *model) setCD() {
 	}
 }
 
+func (m *model) ToggleShowHidden() {
+	m.d.cd.ToggleHiddenInvis()
+	m.d.wd.ToggleHiddenInvis()
+	m.d.pd.ToggleHiddenInvis()
+	m.notifyObservers()
+}
+
 func (m *model) Navigate(d Direction) {
 	switch d {
 	case Left:
@@ -115,17 +123,17 @@ func (m *model) Navigate(d Direction) {
 		m.logCurrentDirState()
 	case Up:
 		// todo enable setting to disable circular selection thing
-		m.d.wd.SetSelection((m.d.wd.GetSelection() - 1 + m.d.wd.GetFileCount()) % m.d.wd.GetFileCount())
+		m.d.wd.SetPrevSelection()
 		m.setCD()
 	case Down:
 		// todo enable setting to disable circular selection thing
-		m.d.wd.SetSelection((m.d.wd.GetSelection() + 1) % m.d.wd.GetFileCount())
+		m.d.wd.SetNextSelection()
 		m.setCD()
 	case Top:
-		m.d.wd.SetSelection(0)
+		m.d.wd.MarkTop()
 		m.setCD()
 	case Bottom:
-		m.d.wd.SetSelection(m.d.wd.GetFileCount() - 1)
+		m.d.wd.MarkBottom()
 		m.setCD()
 	}
 	m.notifyObservers()
