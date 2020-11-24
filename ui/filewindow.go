@@ -33,6 +33,7 @@ func (fw *FileWindow) RenderDir(d fs.Directory, mChan chan<- Message, c config.U
 		return
 	}
 
+	fCount := len(files)
 	fileOffset := 0
 	ym := fw.a.GetYMax()
 	xs := fw.a.GetXStart()
@@ -46,13 +47,13 @@ func (fw *FileWindow) RenderDir(d fs.Directory, mChan chan<- Message, c config.U
 	}
 
 	s := 0
-	for i, f := range files {
+	for i, x := 0, xs; i <= ym && i+fileOffset < fCount; i, x = i+1, xs {
+		f := files[i+fileOffset]
 		// Don't render "invisible" files
 		if f.CheckInvis() {
 			s++
 			continue
 		}
-		x := xs
 		fName := f.GetFileInfo().Name()
 		fLen := len(fName)
 		fStyle := config.GetStyle(f)
