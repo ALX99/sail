@@ -25,7 +25,7 @@ type Model interface {
 
 // CreateModel creates a new model
 func CreateModel() (Model, error) {
-	m := model{d: DirState{}, dirCache: make(map[string]*fs.Directory)}
+	m := model{d: DirState{}, dirCache: make(map[string]*fs.Directory), hideHidden: true}
 	if err := m.start(); err != nil {
 		return nil, err
 	}
@@ -97,6 +97,10 @@ func (m *model) ToggleShowHidden() {
 }
 
 func (m *model) Navigate(d Direction) {
+	if d != Left && m.d.wd.IsEmpty() {
+		logger.LogMessage(id, "Current dir is empty, ignoring navigation commands", logger.DEBUG)
+		return
+	}
 	switch d {
 	case Left:
 		if m.d.wd.CheckForParent() {
@@ -160,11 +164,8 @@ func (m model) notifyObservers() {
 }
 
 func (m model) cacheDir(d fs.Directory) {
-	// Cache non empty directories
-	if !d.IsEmpty() {
-		logger.LogMessage(id, "Caching: "+d.GetPath(), logger.DEBUG)
-		m.dirCache[d.GetPath()] = &d
-	}
+	logger.LogMessage(id, "Caching: "+d.GetPath(), logger.DEBUG)
+	m.dirCache[d.GetPath()] = &d
 }
 
 // getDir checks the dirCache before
@@ -172,11 +173,12 @@ func (m model) cacheDir(d fs.Directory) {
 func (m model) getDir(path string) fs.Directory {
 	if d, ok := m.dirCache[path]; ok {
 		logger.LogMessage(id, "Cache hit: "+d.GetPath(), logger.DEBUG)
-		d.SetShowHidden(m.hideHidden)
 		if i, err := os.Stat(path); err == nil && i.ModTime().After(d.GetQueryTime()) {
 			logger.LogMessage(id, "Refreshing: "+d.GetPath(), logger.DEBUG)
-			d.Refresh()
+			d.Refresh(m.hideHidden)
+			return *d
 		}
+		d.SetShowHidden(m.hideHidden)
 		return *d
 	}
 	return fs.GetDirectory(path, m.hideHidden)

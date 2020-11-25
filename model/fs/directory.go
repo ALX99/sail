@@ -14,12 +14,14 @@ type Directory struct {
 	selection  int
 	err        error
 	queried    time.Time
+	allInvis   bool
 	hideHidden bool
 }
 
-// IsEmpty checks if the directory is empty
+// IsEmpty checks if the directory
+// appears empty to the user
 func (d Directory) IsEmpty() bool {
-	return len(d.files) == 0
+	return d.allInvis || len(d.files) == 0
 }
 
 // GetSelection returns the index of the currently selected file
@@ -55,7 +57,10 @@ func (d Directory) GetFiles() ([]File, error) {
 	if d.err != nil {
 		return nil, d.err
 	}
-	return d.files, nil
+	if !d.allInvis {
+		return d.files, nil
+	}
+	return append(d.files, File{f: fakefileinfo{name: "empty"}}), nil
 }
 
 // CheckForParent checks if there are any parent directories
@@ -93,7 +98,7 @@ func GetDirectory(path string, hideHidden bool) Directory {
 
 // GetEmptyDirectory returns an empty Directory
 func GetEmptyDirectory() Directory {
-	return Directory{files: []File{}}
+	return Directory{files: []File{}, selection: -1}
 }
 
 // GetQueryTime retrieves the time the fs was queried
@@ -113,9 +118,10 @@ func (d Directory) getMarkedFiles() []string {
 }
 
 // Refresh refreshes the filelist
-func (d *Directory) Refresh() {
+func (d *Directory) Refresh(hideHidden bool) {
 	d.queried = time.Now()
 	var files []File
+	var prevSel string
 	fInfos, err := ioutil.ReadDir(d.path)
 	if err != nil {
 		d.err = err
@@ -125,11 +131,25 @@ func (d *Directory) Refresh() {
 	for _, fInfo := range fInfos {
 		files = append(files, createFile(fInfo))
 	}
+
+	if !d.allInvis {
+		prevSel = d.GetSelectedFile().f.Name()
+	}
+
 	marks := d.getMarkedFiles()
-	sel := d.GetSelectedFile().f.Name()
 	d.files = files
 	d.setMarkedFiles(marks)
-	d.SetSelectedFile(sel)
+
+	// Force directory to go through all
+	// the files and set the visibility accordingly
+	if hideHidden {
+		d.hideHidden = false
+		d.SetShowHidden(true)
+	}
+
+	if prevSel != "" {
+		d.SetSelectedFile(prevSel)
+	}
 }
 
 // setMarkedFiles sets the marked files
@@ -146,19 +166,20 @@ func (d *Directory) setMarkedFiles(filename []string) {
 
 // SetNextSelection selects the next file
 func (d *Directory) SetNextSelection() {
-	fCount := len(d.files)
-	d.selection = (d.selection + 1) % fCount
-	for d.files[d.selection].invis {
-		d.selection = (d.selection + 1) % fCount
-	}
+	d.moveSelection(1)
 }
 
 // SetPrevSelection selects the previous file
 func (d *Directory) SetPrevSelection() {
+	d.moveSelection(-1)
+}
+
+// precondition: directory is not empty
+func (d *Directory) moveSelection(i int) {
 	fCount := len(d.files)
-	d.selection = (d.selection - 1 + fCount) % fCount
+	d.selection = (d.selection + i + fCount) % fCount
 	for d.files[d.selection].invis {
-		d.selection = (d.selection - 1 + fCount) % fCount
+		d.selection = (d.selection + i + fCount) % fCount
 	}
 }
 
@@ -176,18 +197,28 @@ func (d *Directory) MarkTop() {
 
 // SetShowHidden sets the insvisible
 // field on hidden files
-func (d *Directory) SetShowHidden(b bool) {
-	// Avoid unnecessary loops
-	if d.hideHidden == b {
+func (d *Directory) SetShowHidden(hideHidden bool) {
+	// Don't do anything unless necessary
+	if hideHidden == d.hideHidden {
 		return
 	}
-	for i := 0; i < len(d.files); i++ {
+	d.hideHidden = hideHidden
+	fCount := len(d.files)
+	changed := 0
+	for i := 0; i < fCount; i++ {
 		if d.files[i].f.Name()[0:1] == "." {
-			d.files[i].invis = b
+			d.files[i].invis = hideHidden
+			changed++
 		}
 	}
+
+	if changed == fCount && hideHidden {
+		d.allInvis = true
+	} else if !hideHidden && fCount > 0 {
+		d.allInvis = false
+	}
+
 	if !d.IsEmpty() && d.files[d.selection].invis {
 		d.SetNextSelection()
 	}
-	d.hideHidden = b
 }
