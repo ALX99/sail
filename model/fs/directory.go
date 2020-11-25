@@ -96,11 +96,6 @@ func GetDirectory(path string, hideHidden bool) Directory {
 	return d
 }
 
-// GetEmptyDirectory returns an empty Directory
-func GetEmptyDirectory() Directory {
-	return Directory{files: []File{}, selection: -1}
-}
-
 // GetQueryTime retrieves the time the fs was queried
 func (d Directory) GetQueryTime() time.Time {
 	return d.queried
@@ -224,7 +219,7 @@ func (d *Directory) SetShowHidden(hideHidden bool) {
 
 	// Select next file if the current file
 	// became invis
-	if d.files[d.selection].invis {
+	if fCount != 0 && d.files[d.selection].invis {
 		d.SetNextSelection()
 	}
 }

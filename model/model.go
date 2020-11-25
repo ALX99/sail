@@ -83,8 +83,6 @@ func (m *model) setCD() {
 		} else {
 			m.d.cd = m.getDir(m.d.wd.GetPath() + "/" + m.d.wd.GetSelectedFile().GetFileInfo().Name())
 		}
-	} else {
-		m.d.cd = fs.GetEmptyDirectory()
 	}
 }
 
