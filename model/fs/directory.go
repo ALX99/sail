@@ -2,7 +2,6 @@ package fs
 
 // todo different ways to sort files
 import (
-	"io/ioutil"
 	"path/filepath"
 	"time"
 )
@@ -82,7 +81,7 @@ func (d *Directory) SetSelectedFile(filename string) {
 // GetDirectory returns the directory from the full path
 func GetDirectory(path string, hideHidden bool) Directory {
 	var files []File
-	fInfos, err := ioutil.ReadDir(path)
+	fInfos, err := readDir(path)
 	if err != nil {
 		return Directory{path: path, err: err}
 	}
@@ -123,7 +122,7 @@ func (d *Directory) Refresh(hideHidden bool) {
 	d.queried = time.Now()
 	var files []File
 	var prevSel string
-	fInfos, err := ioutil.ReadDir(d.path)
+	fInfos, err := readDir(d.path)
 	if err != nil {
 		d.err = err
 		return
