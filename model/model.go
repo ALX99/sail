@@ -136,10 +136,10 @@ func (m *model) Navigate(d Direction) {
 		m.d.wd.SetNextSelection()
 		m.setCD()
 	case Top:
-		m.d.wd.MarkTop()
+		m.d.wd.SelectTop()
 		m.setCD()
 	case Bottom:
-		m.d.wd.MarkBottom()
+		m.d.wd.SelectBottom()
 		m.setCD()
 	}
 	m.notifyObservers()

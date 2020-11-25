@@ -73,9 +73,10 @@ func (d *Directory) SetSelectedFile(filename string) {
 	for i, f := range d.files {
 		if f.f.Name() == filename {
 			d.selection = i
-			break
+			return
 		}
 	}
+	d.SelectTop()
 }
 
 // GetDirectory returns the directory from the full path
@@ -176,6 +177,10 @@ func (d *Directory) SetPrevSelection() {
 
 // precondition: directory is not empty
 func (d *Directory) moveSelection(i int) {
+	// Can't select anything if all files are invis
+	if d.allInvis {
+		return
+	}
 	fCount := len(d.files)
 	d.selection = (d.selection + i + fCount) % fCount
 	for d.files[d.selection].invis {
@@ -183,14 +188,14 @@ func (d *Directory) moveSelection(i int) {
 	}
 }
 
-// MarkBottom marks the last non invisible file
-func (d *Directory) MarkBottom() {
+// SelectBottom selects the last non invisible file
+func (d *Directory) SelectBottom() {
 	d.selection = 0
 	d.SetPrevSelection()
 }
 
-// MarkTop marks the first non invisible file
-func (d *Directory) MarkTop() {
+// SelectTop selects the first non invisible file
+func (d *Directory) SelectTop() {
 	d.selection = len(d.files) - 1
 	d.SetNextSelection()
 }
@@ -218,7 +223,9 @@ func (d *Directory) SetShowHidden(hideHidden bool) {
 		d.allInvis = false
 	}
 
-	if !d.IsEmpty() && d.files[d.selection].invis {
+	// Select next file if the current file
+	// became invis
+	if d.files[d.selection].invis {
 		d.SetNextSelection()
 	}
 }
