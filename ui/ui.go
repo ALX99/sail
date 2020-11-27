@@ -6,6 +6,7 @@ import (
 	"github.com/alx99/fly/config"
 	"github.com/alx99/fly/logger"
 	"github.com/alx99/fly/model"
+	"github.com/alx99/fly/model/fs"
 	"github.com/alx99/fly/ui/pos"
 	"github.com/gdamore/tcell/v2"
 )
@@ -35,7 +36,7 @@ type UI interface {
 
 type ui struct {
 	screen           tcell.Screen
-	wd, pd, cd       *FileWindow
+	wd, pd, cd       FileWindow
 	w, h             int
 	msgWindowVisible bool
 	mw               *msgWindow
@@ -100,9 +101,9 @@ func (ui ui) sync() {
 		}
 	}
 
-	ui.pd.RenderDir(ui.d.GetPD(), ui.messageChan, ui.cfg)
-	ui.wd.RenderDir(ui.d.GetWD(), ui.messageChan, ui.cfg)
-	ui.cd.RenderDir(ui.d.GetCD(), ui.messageChan, ui.cfg)
+	ui.renderDir(ui.d.GetPD(), &ui.pd)
+	ui.renderDir(ui.d.GetWD(), &ui.wd)
+	ui.renderDir(ui.d.GetCD(), &ui.cd)
 
 	if ui.msgWindowVisible {
 		ui.mw.show()
@@ -132,6 +133,8 @@ func (ui ui) Shutdown() {
 	logger.LogMessage(id, "Shutting down", logger.DEBUG)
 	close(ui.dirChange)
 	close(ui.settingChange)
+	// todo closing this here results in subsequent calls to rendering a folder where there is an error will result in a send on closed channel error
+
 	close(ui.messageChan)
 	ui.shutdown.Wait()
 	ui.screen.Clear()
@@ -255,6 +258,15 @@ func (ui *ui) eventHandler() {
 		}
 	}
 	ui.shutdown.Done()
+}
+
+// Helper function to render a directory
+func (ui ui) renderDir(d fs.Directory, w *FileWindow) {
+	if files, err := d.GetFiles(); err == nil {
+		w.RenderFiles(files, d.GetSelection(), ui.cfg)
+	} else {
+		ui.messageChan <- CreateMessage(err.Error(), true)
+	}
 }
 
 // Start starts up the UI

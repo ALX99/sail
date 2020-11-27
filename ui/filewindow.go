@@ -15,8 +15,8 @@ type FileWindow struct {
 }
 
 // CreateFileWindow Creates a filewindow
-func CreateFileWindow(a pos.Area, s tcell.Screen) *FileWindow {
-	fw := &FileWindow{a: a, s: s}
+func CreateFileWindow(a pos.Area, s tcell.Screen) FileWindow {
+	fw := FileWindow{a: a, s: s}
 	return fw
 }
 
@@ -25,20 +25,14 @@ func (fw *FileWindow) SetPos(start, end pos.Coord) {
 	fw.a.UpdateArea(start, end)
 }
 
-// RenderDir renders a directory
-func (fw *FileWindow) RenderDir(d fs.Directory, mChan chan<- Message, c config.UI) {
-	files, err := d.GetFiles()
-	if err != nil {
-		mChan <- CreateMessage(err.Error(), true)
-		return
-	}
+// RenderFiles renders a list of files
+func (fw *FileWindow) RenderFiles(files []fs.File, sel int, c config.UI) {
 
 	fCount := len(files)
 	fileOffset := 0
 	ym := fw.a.GetYMax()
 	xs := fw.a.GetXStart()
 	ys := fw.a.GetYStart()
-	sel := d.GetSelection()
 
 	// Offset the files displayed if the selection can't
 	// be shown in the amount of lines we have
