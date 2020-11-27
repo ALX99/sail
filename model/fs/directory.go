@@ -4,17 +4,29 @@ package fs
 import (
 	"path/filepath"
 	"time"
+
+	"github.com/alx99/fly/config"
 )
 
 // Directory represents a directory in the filesystem
 type Directory struct {
-	path       string
-	files      []File
-	selection  int
-	err        error
-	queried    time.Time
-	allInvis   bool
-	hideHidden bool
+	path      string
+	files     []File
+	selection int
+	err       error
+	queried   time.Time
+	allInvis  bool
+	dirConfig config.DirConfig
+}
+
+// GetDirState returns the dirState
+func (d Directory) GetDirState() config.DirConfig {
+	return d.dirConfig
+}
+
+// GetEmptyDirectory returns an empty directory
+func GetEmptyDirectory() Directory {
+	return Directory{}
 }
 
 // IsEmpty checks if the directory
@@ -79,7 +91,7 @@ func (d *Directory) SetSelectedFile(filename string) {
 }
 
 // GetDirectory returns the directory from the full path
-func GetDirectory(path string, hideHidden bool) Directory {
+func GetDirectory(path string, conf config.DirConfig) Directory {
 	var files []File
 	fInfos, err := readDir(path)
 	if err != nil {
@@ -90,9 +102,7 @@ func GetDirectory(path string, hideHidden bool) Directory {
 		files = append(files, createFile(fInfo))
 	}
 	d := Directory{path: path, files: files, queried: time.Now()}
-	if hideHidden {
-		d.SetShowHidden(hideHidden)
-	}
+	d.SetDirConfig(conf)
 	return d
 }
 
@@ -113,7 +123,8 @@ func (d Directory) getMarkedFiles() []string {
 }
 
 // Refresh refreshes the filelist
-func (d *Directory) Refresh(hideHidden bool) {
+func (d *Directory) Refresh(conf config.DirConfig) {
+	d.dirConfig = conf
 	d.queried = time.Now()
 	var files []File
 	var prevSel string
@@ -135,12 +146,9 @@ func (d *Directory) Refresh(hideHidden bool) {
 	d.files = files
 	d.setMarkedFiles(marks)
 
-	// Force directory to go through all
-	// the files and set the visibility accordingly
-	if hideHidden {
-		d.hideHidden = false
-		d.SetShowHidden(true)
-	}
+	// This will force .SetDirConfig to go through all the files again
+	d.dirConfig = config.DirConfig{}
+	d.SetDirConfig(conf)
 
 	if prevSel != "" {
 		d.SetSelectedFile(prevSel)
@@ -194,14 +202,17 @@ func (d *Directory) SelectTop() {
 	d.SetNextSelection()
 }
 
-// SetShowHidden sets the insvisible
-// field on hidden files
-func (d *Directory) SetShowHidden(hideHidden bool) {
-	// Don't do anything unless necessary
-	if hideHidden == d.hideHidden {
-		return
+// SetDirConfig sets the dirconfig
+func (d *Directory) SetDirConfig(config config.DirConfig) {
+	if d.dirConfig.HideHidden != config.HideHidden {
+		d.setShowHidden(config.HideHidden)
 	}
-	d.hideHidden = hideHidden
+	d.dirConfig = config
+}
+
+// setShowHidden sets the insvisible
+// field on hidden files
+func (d *Directory) setShowHidden(hideHidden bool) {
 	fCount := len(d.files)
 	changed := 0
 	for i := 0; i < fCount; i++ {

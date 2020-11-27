@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/alx99/fly/config"
 	"github.com/alx99/fly/logger"
 	"github.com/alx99/fly/model/fs"
 )
@@ -25,7 +26,7 @@ type Model interface {
 
 // CreateModel creates a new model
 func CreateModel() (Model, error) {
-	m := model{d: DirState{}, dirCache: make(map[string]*fs.Directory), hideHidden: true}
+	m := model{d: DirState{}, dirCache: make(map[string]*fs.Directory), dirConfig: config.DirConfig{}}
 	if err := m.start(); err != nil {
 		return nil, err
 	}
@@ -34,10 +35,10 @@ func CreateModel() (Model, error) {
 
 // ? Do we want to cache more directories than just those displayed
 type model struct {
-	d          DirState
-	observers  []dirObserver
-	dirCache   map[string]*fs.Directory
-	hideHidden bool
+	d         DirState
+	observers []dirObserver
+	dirCache  map[string]*fs.Directory
+	dirConfig config.DirConfig
 }
 
 func (m *model) start() error {
@@ -47,12 +48,13 @@ func (m *model) start() error {
 		logger.LogError(id, "Failed to get initial wd", err)
 		return err
 	}
-	m.d.wd = fs.GetDirectory(wd, m.hideHidden)
-	m.d.pd = fs.GetDirectory(filepath.Dir(m.d.wd.GetPath()), m.hideHidden)
+	m.d.wd = fs.GetDirectory(wd, m.dirConfig)
+	m.d.pd = fs.GetDirectory(filepath.Dir(m.d.wd.GetPath()), m.dirConfig)
 	m.d.pd.SetSelectedFile(filepath.Base(m.d.wd.GetPath()))
 	m.setCD()
 	return nil
 }
+
 func (m model) logCurrentDirState() {
 	if _, e := m.d.cd.GetFiles(); e == nil {
 		logger.LogMessage(id, "cd: "+m.d.cd.GetPath(), logger.DEBUG)
@@ -87,10 +89,10 @@ func (m *model) setCD() {
 }
 
 func (m *model) ToggleShowHidden() {
-	m.hideHidden = !m.hideHidden
-	m.d.cd.SetShowHidden(m.hideHidden)
-	m.d.wd.SetShowHidden(m.hideHidden)
-	m.d.pd.SetShowHidden(m.hideHidden)
+	m.dirConfig.HideHidden = !m.dirConfig.HideHidden
+	m.d.cd.SetDirConfig(m.dirConfig)
+	m.d.wd.SetDirConfig(m.dirConfig)
+	m.d.pd.SetDirConfig(m.dirConfig)
 	m.notifyObservers()
 }
 
@@ -173,11 +175,11 @@ func (m model) getDir(path string) fs.Directory {
 		logger.LogMessage(id, "Cache hit: "+d.GetPath(), logger.DEBUG)
 		if i, err := os.Stat(path); err == nil && i.ModTime().After(d.GetQueryTime()) {
 			logger.LogMessage(id, "Refreshing: "+d.GetPath(), logger.DEBUG)
-			d.Refresh(m.hideHidden)
+			d.Refresh(m.dirConfig)
 			return *d
 		}
-		d.SetShowHidden(m.hideHidden)
+		d.SetDirConfig(m.dirConfig)
 		return *d
 	}
-	return fs.GetDirectory(path, m.hideHidden)
+	return fs.GetDirectory(path, m.dirConfig)
 }

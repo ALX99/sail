@@ -33,6 +33,11 @@ type UI struct {
 	styles      map[string]tcell.Style
 }
 
+// DirSettings holds directory settings
+type DirConfig struct {
+	HideHidden bool
+}
+
 // todo read config file
 func init() {
 	cfg.UI.PDRatio = 1.0

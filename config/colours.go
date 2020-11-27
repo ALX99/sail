@@ -7,7 +7,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/alx99/fly/model/fs"
 	"github.com/alx99/fly/util"
 	"github.com/gdamore/tcell/v2"
 )
@@ -157,8 +156,7 @@ func parseNums(s string) []int {
 
 // GetStyle returns the style corresponding to
 // the given file
-func GetStyle(f fs.File) tcell.Style {
-	fInfo := f.GetFileInfo()
+func GetStyle(fInfo os.FileInfo) tcell.Style {
 	m := fInfo.Mode()
 	var k string
 	switch {
