@@ -50,7 +50,7 @@ func (fw *FileWindow) RenderFiles(files []fs.File, sel int, c config.UI) {
 		}
 		fName := f.GetFileInfo().Name()
 		fLen := len(fName)
-		fStyle := config.GetStyle(f)
+		fStyle := config.GetStyle(f.GetFileInfo())
 
 		// Reverse current selection if the file
 		// currently is selected by the UI

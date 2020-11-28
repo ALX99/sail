@@ -8,6 +8,8 @@ type BoolCommand struct {
 }
 
 // CreateBoolCommand creates a new BoolCommand
+// which by default acts as a toggle for the
+// specified command
 func CreateBoolCommand(c Cmd) BoolCommand {
 	return BoolCommand{c: c}
 }

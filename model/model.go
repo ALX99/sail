@@ -3,6 +3,8 @@ package model
 import (
 	"os"
 	"path/filepath"
+	"sync"
+	"sync/atomic"
 
 	"github.com/alx99/fly/config"
 	"github.com/alx99/fly/logger"
@@ -13,6 +15,13 @@ import (
 const id = "MDL"
 
 type dirObserver chan<- DirState
+type dirRole int
+
+const (
+	parentDir dirRole = iota
+	workingDir
+	childDir
+)
 
 // todo notify loading so it can display loading indicator?
 
@@ -39,6 +48,18 @@ type model struct {
 	observers []dirObserver
 	dirCache  map[string]*fs.Directory
 	dirConfig config.DirConfig
+	// If the child directory has changed
+	cacheCD bool
+
+	// The number of requests for different directories
+	cdRequest *int32
+	wdRequest *int32
+	pdRequest *int32
+
+	// Lock for the cache
+	// ! It is currently only possible to have at most 1 reader
+	// ! so there's no reason to use RWMutex
+	cacheLock sync.Mutex
 }
 
 func (m *model) start() error {
@@ -48,9 +69,14 @@ func (m *model) start() error {
 		logger.LogError(id, "Failed to get initial wd", err)
 		return err
 	}
+	m.cacheCD = true
+	m.cdRequest = new(int32)
+	m.wdRequest = new(int32)
+	m.pdRequest = new(int32)
+
+	// ! Does currently not load wd async, should be fixed in future
 	m.d.wd = fs.GetDirectory(wd, m.dirConfig)
-	m.d.pd = fs.GetDirectory(filepath.Dir(m.d.wd.GetPath()), m.dirConfig)
-	m.d.pd.SetSelectedFile(filepath.Base(m.d.wd.GetPath()))
+	m.getandsetDir(filepath.Dir(m.d.wd.GetPath()), filepath.Base(m.d.wd.GetPath()), parentDir, *m.pdRequest)
 	m.setCD()
 	return nil
 }
@@ -73,22 +99,28 @@ func (m model) logCurrentDirState() {
 	}
 }
 
-// if the selection of wd is a diretory cd is set to that
-// otherwise it's set to an empty directory else{
-
-// todo otherwise it will be ignored in the future when we have previews working
 func (m *model) setCD() {
-	m.cacheDir(m.d.cd)
+	atomic.AddInt32(m.cdRequest, 1)
+	// Only cache when needed
+	if m.cacheCD {
+		m.cacheDir(m.d.cd)
+	}
 	if m.d.wd.GetSelectedFile().GetFileInfo().IsDir() {
+		m.cacheCD = true
+		path := ""
 		if m.d.wd.GetPath() == "/" {
-			m.d.cd = m.getDir("/" + m.d.wd.GetSelectedFile().GetFileInfo().Name())
+			path = "/" + m.d.wd.GetSelectedFile().GetFileInfo().Name()
 		} else {
-			m.d.cd = m.getDir(m.d.wd.GetPath() + "/" + m.d.wd.GetSelectedFile().GetFileInfo().Name())
+			path = m.d.wd.GetPath() + "/" + m.d.wd.GetSelectedFile().GetFileInfo().Name()
 		}
+		m.getandsetDir(path, "", childDir, *m.cdRequest)
+	} else {
+		m.cacheCD = false
 	}
 }
 
 func (m *model) ToggleShowHidden() {
+	m.cacheCD = true
 	m.dirConfig.HideHidden = !m.dirConfig.HideHidden
 	m.d.cd.SetDirConfig(m.dirConfig)
 	m.d.wd.SetDirConfig(m.dirConfig)
@@ -104,13 +136,12 @@ func (m *model) Navigate(d Direction) {
 	switch d {
 	case Left:
 		if m.d.wd.CheckForParent() {
+			atomic.AddInt32(m.pdRequest, 1)
 			m.cacheDir(m.d.cd)
 			m.d.cd = m.d.wd
 			m.d.wd = m.d.pd
-			m.d.pd = m.getDir(filepath.Dir(m.d.wd.GetPath()))
-			m.d.pd.SetSelectedFile(filepath.Base(m.d.wd.GetPath()))
+			m.getandsetDir(filepath.Dir(m.d.wd.GetPath()), filepath.Base(m.d.wd.GetPath()), parentDir, *m.pdRequest)
 		}
-		m.logCurrentDirState()
 
 	case Right:
 		// todo this if statement should not be needed
@@ -126,7 +157,6 @@ func (m *model) Navigate(d Direction) {
 		m.d.wd = m.d.cd
 		m.setCD()
 		// todo if cd is a file show some kinda preview
-		m.logCurrentDirState()
 	case Up:
 		// todo enable setting to disable circular selection thing
 		m.d.wd.SetPrevSelection()
@@ -163,23 +193,81 @@ func (m model) notifyObservers() {
 	}
 }
 
-func (m model) cacheDir(d fs.Directory) {
+func (m *model) cacheDir(d fs.Directory) {
 	logger.LogMessage(id, "Caching: "+d.GetPath(), logger.DEBUG)
+	m.cacheLock.Lock()
 	m.dirCache[d.GetPath()] = &d
+	m.cacheLock.Unlock()
 }
 
-// getDir checks the dirCache before
+// getandsetDir checks the dirCache before
 // getting the directory from the fs
-func (m model) getDir(path string) fs.Directory {
-	if d, ok := m.dirCache[path]; ok {
+func (m *model) getandsetDir(path, selectedFile string, role dirRole, stamp int32) {
+	m.cacheLock.Lock()
+	if d, ok := m.dirCache[path]; ok { // Cache hit
+		m.cacheLock.Unlock()
 		logger.LogMessage(id, "Cache hit: "+d.GetPath(), logger.DEBUG)
+
+		// Directory has changed
 		if i, err := os.Stat(path); err == nil && i.ModTime().After(d.GetQueryTime()) {
 			logger.LogMessage(id, "Refreshing: "+d.GetPath(), logger.DEBUG)
-			d.Refresh(m.dirConfig)
-			return *d
+
+			// Refresh dir async
+			go func() {
+				d.Refresh(m.dirConfig)
+				d.SetDirConfig(m.dirConfig) // ! To be honest, a race condition can occur here
+				m.setAndNotify(*d, role, stamp)
+			}()
+		} else {
+			d.SetDirConfig(m.dirConfig)
+			// Don't need to notify UI since we haven't
+			// spun up a new goroutine
+			switch role {
+			case parentDir:
+				m.d.pd = *d
+			case workingDir:
+				m.d.wd = *d
+			case childDir:
+				m.d.cd = *d
+			}
 		}
-		d.SetDirConfig(m.dirConfig)
-		return *d
+	} else { // No cache hit
+		m.cacheLock.Unlock()
+		go func() {
+			d := fs.GetDirectory(path, m.dirConfig)
+			// There's no telling how long the above call will take
+			// so we have to set the dirconfig again in case it has changed.
+			// This isn't too inefficient since it won't have any effect in case
+			// the dirconfig is the same
+			d.SetDirConfig(m.dirConfig) // ! To be honest, a race condition can occur here
+			if role == parentDir {
+				d.SetSelectedFile(selectedFile)
+			}
+			m.setAndNotify(d, role, stamp)
+		}()
 	}
-	return fs.GetDirectory(path, m.dirConfig)
+}
+func (m *model) setAndNotify(d fs.Directory, role dirRole, stamp int32) {
+	switch role {
+	case parentDir:
+		if stamp == *m.pdRequest {
+			m.d.pd = d
+			m.notifyObservers()
+			return
+		}
+	case workingDir:
+		if stamp == *m.wdRequest {
+			m.d.wd = d
+			m.notifyObservers()
+			return
+		}
+	case childDir:
+		if stamp == *m.cdRequest {
+			m.d.cd = d
+			m.notifyObservers()
+			return
+		}
+	}
+	// Cache it if it isn't the most recent request
+	m.cacheDir(d)
 }

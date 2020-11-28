@@ -126,7 +126,6 @@ func (d Directory) getMarkedFiles() []string {
 func (d *Directory) Refresh(conf config.DirConfig) {
 	d.dirConfig = conf
 	d.queried = time.Now()
-	var files []File
 	var prevSel string
 	fInfos, err := readDir(d.path)
 	if err != nil {
@@ -134,8 +133,9 @@ func (d *Directory) Refresh(conf config.DirConfig) {
 		return
 	}
 
-	for _, fInfo := range fInfos {
-		files = append(files, createFile(fInfo))
+	files := make([]File, len(fInfos))
+	for i, fInfo := range fInfos {
+		files[i] = createFile(fInfo)
 	}
 
 	if !d.allInvis {
@@ -202,7 +202,8 @@ func (d *Directory) SelectTop() {
 	d.SetNextSelection()
 }
 
-// SetDirConfig sets the dirconfig
+// SetDirConfig sets the dirconfig and updates the directory
+// if needed
 func (d *Directory) SetDirConfig(config config.DirConfig) {
 	if d.dirConfig.HideHidden != config.HideHidden {
 		d.setShowHidden(config.HideHidden)
