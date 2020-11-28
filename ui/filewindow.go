@@ -26,7 +26,7 @@ func (fw *FileWindow) SetPos(start, end pos.Coord) {
 }
 
 // RenderFiles renders a list of files
-func (fw *FileWindow) RenderFiles(files []fs.File, sel int, c config.UI) {
+func (fw *FileWindow) RenderFiles(files []fs.File, sel, invisCount int, c config.UI) {
 
 	fCount := len(files)
 	fileOffset := 0
@@ -36,7 +36,7 @@ func (fw *FileWindow) RenderFiles(files []fs.File, sel int, c config.UI) {
 
 	// Offset the files displayed if the selection can't
 	// be shown in the amount of lines we have
-	for sel > ym+fileOffset {
+	for sel > ym+fileOffset+invisCount {
 		fileOffset += ym + 1
 	}
 
@@ -45,6 +45,8 @@ func (fw *FileWindow) RenderFiles(files []fs.File, sel int, c config.UI) {
 		f := files[i+fileOffset]
 		// Don't render "invisible" files
 		if f.CheckInvis() {
+			// Here we don't render anything so let's increase yMax as a hack
+			ym++
 			s++
 			continue
 		}

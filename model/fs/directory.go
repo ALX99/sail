@@ -10,12 +10,15 @@ import (
 
 // Directory represents a directory in the filesystem
 type Directory struct {
-	path      string
-	files     []File
-	selection int
-	err       error
+	path  string
+	files []File
+
+	err        error
+	selection  int
+	invisCount int
+	allInvis   bool
+
 	queried   time.Time
-	allInvis  bool
 	dirConfig config.DirConfig
 }
 
@@ -196,6 +199,11 @@ func (d *Directory) SelectBottom() {
 	d.SetPrevSelection()
 }
 
+// GetInvisibleFileCount returns the amount of invisible files
+func (d Directory) GetInvisibleFileCount() int {
+	return d.invisCount
+}
+
 // SelectTop selects the first non invisible file
 func (d *Directory) SelectTop() {
 	d.selection = len(d.files) - 1
@@ -223,10 +231,16 @@ func (d *Directory) setShowHidden(hideHidden bool) {
 		}
 	}
 
-	if changed == fCount && hideHidden {
-		d.allInvis = true
-	} else if !hideHidden && fCount > 0 {
-		d.allInvis = false
+	if hideHidden {
+		d.invisCount = changed
+		if changed == fCount {
+			d.allInvis = true
+		}
+	} else {
+		d.invisCount = 0
+		if fCount > 0 {
+			d.allInvis = false
+		}
 	}
 
 	// Select next file if the current file
