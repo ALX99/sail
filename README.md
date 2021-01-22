@@ -1,6 +1,6 @@
 # FLY - Terminal File Manager
 
-**In development, should not be used**
+## **This repository is archived until I have more time to continue development!**
 
 ## Preview
 
