@@ -22,13 +22,15 @@ type controller struct {
 	cmdChan        chan cmd.Command
 	uiMessageChan  chan<- ui.Message
 	commandBuffer  string
+	kbs            config.KeyBindings
 	msgWindowFocus bool
+	shutdown       bool
 	shutDown       *sync.WaitGroup
 }
 
 // Start starts the controller
 func Start(ui ui.UI, m model.Model) {
-	c := controller{ui: ui, m: m, cmdChan: make(chan cmd.Command, 10), shutDown: &sync.WaitGroup{}}
+	c := controller{ui: ui, m: m, kbs: config.GetAllKeyBindings(), cmdChan: make(chan cmd.Command, 10), shutDown: &sync.WaitGroup{}}
 	logger.LogMessage(id, "Started", logger.DEBUG)
 	c.uiMessageChan = ui.GetMessageChan()
 
@@ -80,78 +82,19 @@ func (c *controller) commandLoop() {
 	}
 	c.shutDown.Done()
 }
-func (c *controller) handleKey(k config.Key) {
 
-}
 func (c *controller) eventLoop() {
-	var m map[config.Key]config.KeyBinding
-	var command cmd.Command
-	kBuffer := ""
-
-loop:
-	for {
+	for !c.shutdown {
 		ev := c.ui.PollEvent()
 		if ev == nil {
 			continue
 		}
 		switch e := ev.(type) {
 		case *tcell.EventKey:
-			k := config.EventKeyToKey(e)
-			if !c.msgWindowFocus {
-				command, m = config.MatchCommand(k, m)
-				kBuffer += k.String()
-
-				// Here we actually found a keybinding
-				if command != nil {
-					kBuffer = ""
-					// Below are commands that need to be handled immediately
-					switch command.GetCommand() {
-					case cmd.Quit:
-						close(c.cmdChan)
-						c.shutDown.Wait()
-						c.ui.Shutdown()
-						break loop
-					case cmd.ToggleCommandMenu:
-						if !c.msgWindowFocus {
-							c.commandBuffer = ":"
-							c.uiMessageChan <- ui.CreateMessage(c.commandBuffer, false)
-						}
-						c.msgWindowFocus = !c.msgWindowFocus
-					default:
-						c.cmdChan <- command
-					}
-				} else if m == nil {
-					c.uiMessageChan <- ui.CreateMessage("Sequence '"+kBuffer+"' is unmapped", true)
-					kBuffer = ""
-				}
+			if c.msgWindowFocus {
+				c.handleKeyPressFocused(e)
 			} else {
-				tK := e.Key()
-				switch {
-				case tK == tcell.KeyEsc:
-					c.ui.CloseMsgWindow()
-					c.msgWindowFocus = !c.msgWindowFocus
-					c.commandBuffer = ""
-				case tK == tcell.KeyBackspace2 || tK == tcell.KeyBackspace:
-					c.commandBuffer = c.commandBuffer[:len(c.commandBuffer)-1]
-					c.uiMessageChan <- ui.CreateMessage(c.commandBuffer, false)
-					if c.commandBuffer == "" {
-						c.ui.CloseMsgWindow()
-						c.msgWindowFocus = false
-					}
-				case tK == tcell.KeyEnter:
-					cmd, err := parseCommand(c.commandBuffer[1:])
-					if err != nil {
-						c.uiMessageChan <- ui.CreateMessage(err.Error(), true)
-					} else {
-						c.cmdChan <- cmd
-					}
-					c.ui.CloseMsgWindow()
-					c.msgWindowFocus = !c.msgWindowFocus
-					c.commandBuffer = ""
-				default:
-					c.commandBuffer += k.String()
-					c.uiMessageChan <- ui.CreateMessage(c.commandBuffer, false)
-				}
+				c.handleKeyPressUnfocused(e)
 			}
 		case *tcell.EventInterrupt:
 			logger.LogMessage(id, "eventinterrupt NOT IMPLEMENTED", logger.NORMAL)
@@ -167,6 +110,81 @@ loop:
 	logger.Shutdown()
 }
 
+func (c *controller) handleKeyPressUnfocused(e *tcell.EventKey) {
+	if e.Key() == tcell.KeyRune {
+		c.commandBuffer += string(e.Rune())
+	} else {
+		c.commandBuffer += e.Name()
+	}
+
+	mappings, ok := c.kbs.FindMatches(e)
+	if !ok { // No keybindings found
+		msg := "Sequence " + c.commandBuffer + " is unmapped"
+		logger.LogError(id, msg, errors.New("No sequence found for keybinding"))
+		c.uiMessageChan <- ui.CreateMessage(msg, true)
+		c.commandBuffer = ""
+		c.kbs = config.GetAllKeyBindings()
+		return
+	}
+	c.kbs = mappings
+
+	if c.kbs.IsSingleKeyBinding() {
+		c.commandBuffer = ""
+		// Below are commands that need to be handled immediately
+		// since they change how forfthcomming keypresses are interpretated
+		switch c.kbs.GetCommand() {
+		case cmd.Quit:
+			close(c.cmdChan)
+			c.shutDown.Wait()
+			c.ui.Shutdown()
+			c.shutdown = true
+		case cmd.ToggleCommandMenu:
+			if !c.msgWindowFocus {
+				c.commandBuffer = ":"
+				c.uiMessageChan <- ui.CreateMessage(c.commandBuffer, false)
+			}
+			c.msgWindowFocus = !c.msgWindowFocus
+		default:
+			c.cmdChan <- c.kbs.GetCommand()
+		}
+		c.kbs = config.GetAllKeyBindings()
+	}
+}
+
+func (c *controller) handleKeyPressFocused(e *tcell.EventKey) {
+	tK := e.Key()
+	switch {
+	case tK == tcell.KeyEsc:
+		c.ui.CloseMsgWindow()
+		c.msgWindowFocus = !c.msgWindowFocus
+		c.commandBuffer = ""
+	case tK == tcell.KeyBackspace2 || tK == tcell.KeyBackspace:
+		c.commandBuffer = c.commandBuffer[:len(c.commandBuffer)-1]
+		c.uiMessageChan <- ui.CreateMessage(c.commandBuffer, false)
+		if c.commandBuffer == "" {
+			c.ui.CloseMsgWindow()
+			c.msgWindowFocus = false
+		}
+	case tK == tcell.KeyEnter:
+		cmd, err := parseCommand(c.commandBuffer[1:])
+		if err != nil {
+			c.uiMessageChan <- ui.CreateMessage(err.Error(), true)
+		} else {
+			c.cmdChan <- cmd
+		}
+		c.ui.CloseMsgWindow()
+		c.msgWindowFocus = !c.msgWindowFocus
+		c.commandBuffer = ""
+	default:
+		// A non printable character was sent
+		if e.Key() != tcell.KeyRune {
+			logger.LogError(id, "Received "+e.Name(), errors.New("Received non printable character in the msgWindow"))
+		} else {
+			c.commandBuffer += string(e.Rune())
+			c.uiMessageChan <- ui.CreateMessage(c.commandBuffer, false)
+		}
+	}
+}
 func parseCommand(command string) (cmd.Command, error) {
 	s := strings.Split(command, " ")
 	if s[0] == "toggle" {

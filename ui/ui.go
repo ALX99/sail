@@ -85,7 +85,7 @@ func (ui *ui) initWindows() {
 }
 
 // sync displays the new changes
-func (ui ui) sync() {
+func (ui *ui) sync() {
 	// todo in the future every window should be responsible for clearing itself, and redrawing borders and stuff all the time won't be necessary
 	ui.screen.Clear()
 
@@ -112,7 +112,7 @@ func (ui ui) sync() {
 }
 
 // Refresh refreshes every single cell, currently it is not used
-func (ui ui) Refresh() {
+func (ui *ui) Refresh() {
 	ui.screen.Sync()
 }
 
@@ -129,7 +129,7 @@ func (ui *ui) PollEvent() tcell.Event {
 	return nil
 }
 
-func (ui ui) Shutdown() {
+func (ui *ui) Shutdown() {
 	logger.LogMessage(id, "Shutting down", logger.DEBUG)
 	close(ui.dirChange)
 	close(ui.settingChange)
@@ -213,7 +213,7 @@ func (ui *ui) messageHandler() {
 	}
 }
 
-func (ui ui) GetMessageChan() chan<- Message {
+func (ui *ui) GetMessageChan() chan<- Message {
 	return ui.messageChan
 }
 
@@ -261,7 +261,7 @@ func (ui *ui) eventHandler() {
 }
 
 // Helper function to render a directory
-func (ui ui) renderDir(d fs.Directory, w *FileWindow) {
+func (ui *ui) renderDir(d fs.Directory, w *FileWindow) {
 	if files, err := d.GetFiles(); err == nil {
 		w.RenderFiles(files, d.GetSelection(), d.GetInvisibleFileCount(), ui.cfg)
 	} else {

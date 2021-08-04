@@ -17,7 +17,7 @@ var uiConfObservers []uiConfigObserver
 // Config holds all the settings for fly
 type Config struct {
 	UI   UI
-	keys []KeyBinding
+	keys []KeyBindings
 }
 
 // UI holds all the settings available for the UI
