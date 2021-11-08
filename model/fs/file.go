@@ -4,9 +4,10 @@ import "os"
 
 // File represents a file in the filesystem
 type File struct {
-	f      os.FileInfo
-	marked bool
-	invis  bool
+	f        os.FileInfo
+	selected bool
+	marked   bool
+	invis    bool
 }
 
 func createFile(fInfo os.FileInfo) File {
@@ -21,6 +22,11 @@ func (f *File) SetMarked(marked bool) {
 // GetFileInfo returns the file's FileInfo
 func (f File) GetFileInfo() os.FileInfo {
 	return f.f
+}
+
+// CheckSelected checks if the file is selected
+func (f File) CheckSelected() bool {
+	return f.selected
 }
 
 // CheckMarked checks if the file is marked

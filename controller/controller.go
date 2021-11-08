@@ -20,7 +20,6 @@ type controller struct {
 	m  model.Model
 
 	cmdChan        chan cmd.Command
-	uiMessageChan  chan<- ui.Message
 	commandBuffer  string
 	kbs            config.KeyBindings
 	msgWindowFocus bool
@@ -32,7 +31,6 @@ type controller struct {
 func Start(ui ui.UI, m model.Model) {
 	c := controller{ui: ui, m: m, kbs: config.GetAllKeyBindings(), cmdChan: make(chan cmd.Command, 10), shutDown: &sync.WaitGroup{}}
 	logger.LogMessage(id, "Started", logger.DEBUG)
-	c.uiMessageChan = ui.GetMessageChan()
 
 	go c.commandLoop()
 	c.eventLoop()
@@ -121,7 +119,7 @@ func (c *controller) handleKeyPressUnfocused(e *tcell.EventKey) {
 	if !ok { // No keybindings found
 		msg := "Sequence " + c.commandBuffer + " is unmapped"
 		logger.LogError(id, msg, errors.New("No sequence found for keybinding"))
-		c.uiMessageChan <- ui.CreateMessage(msg, true)
+		c.ui.ShowMessage(ui.CreateMessage(msg, true))
 		c.commandBuffer = ""
 		c.kbs = config.GetAllKeyBindings()
 		return
@@ -131,7 +129,7 @@ func (c *controller) handleKeyPressUnfocused(e *tcell.EventKey) {
 	if c.kbs.IsSingleKeyBinding() {
 		c.commandBuffer = ""
 		// Below are commands that need to be handled immediately
-		// since they change how forfthcomming keypresses are interpretated
+		// since they change how forfthcoming keypresses are interpreted
 		switch c.kbs.GetCommand() {
 		case cmd.Quit:
 			close(c.cmdChan)
@@ -141,7 +139,7 @@ func (c *controller) handleKeyPressUnfocused(e *tcell.EventKey) {
 		case cmd.ToggleCommandMenu:
 			if !c.msgWindowFocus {
 				c.commandBuffer = ":"
-				c.uiMessageChan <- ui.CreateMessage(c.commandBuffer, false)
+				c.ui.ShowMessage(ui.CreateMessage(c.commandBuffer, false))
 			}
 			c.msgWindowFocus = !c.msgWindowFocus
 		default:
@@ -160,7 +158,7 @@ func (c *controller) handleKeyPressFocused(e *tcell.EventKey) {
 		c.commandBuffer = ""
 	case tK == tcell.KeyBackspace2 || tK == tcell.KeyBackspace:
 		c.commandBuffer = c.commandBuffer[:len(c.commandBuffer)-1]
-		c.uiMessageChan <- ui.CreateMessage(c.commandBuffer, false)
+		c.ui.ShowMessage(ui.CreateMessage(c.commandBuffer, false))
 		if c.commandBuffer == "" {
 			c.ui.CloseMsgWindow()
 			c.msgWindowFocus = false
@@ -168,7 +166,7 @@ func (c *controller) handleKeyPressFocused(e *tcell.EventKey) {
 	case tK == tcell.KeyEnter:
 		cmd, err := parseCommand(c.commandBuffer[1:])
 		if err != nil {
-			c.uiMessageChan <- ui.CreateMessage(err.Error(), true)
+			c.ui.ShowMessage(ui.CreateMessage(err.Error(), true))
 		} else {
 			c.cmdChan <- cmd
 		}
@@ -181,7 +179,7 @@ func (c *controller) handleKeyPressFocused(e *tcell.EventKey) {
 			logger.LogError(id, "Received "+e.Name(), errors.New("Received non printable character in the msgWindow"))
 		} else {
 			c.commandBuffer += string(e.Rune())
-			c.uiMessageChan <- ui.CreateMessage(c.commandBuffer, false)
+			c.ui.ShowMessage(ui.CreateMessage(c.commandBuffer, false))
 		}
 	}
 }

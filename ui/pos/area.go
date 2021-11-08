@@ -3,7 +3,7 @@ package pos
 // Area represents an area bounded by the start and end coordinates
 type Area struct {
 	start, end Coord
-	p          Padding
+	p          Pad
 
 	// Max characters allowed to render in a direction
 	xMax, yMax int
@@ -11,7 +11,7 @@ type Area struct {
 	xStart, yStart int
 }
 
-func CreateArea(start, end Coord, p Padding) Area {
+func CreateArea(start, end Coord, p Pad) Area {
 	a := Area{start: start, end: end, p: p}
 	a.calculateLimits()
 	return a

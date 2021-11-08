@@ -26,23 +26,16 @@ func (fw *FileWindow) SetPos(start, end pos.Coord) {
 }
 
 // RenderFiles renders a list of files
-func (fw *FileWindow) RenderFiles(files []fs.File, sel, invisCount int, c config.UI) {
+func (fw *FileWindow) RenderFiles(files []fs.File, sel fs.File, invisCount int, c config.UI) {
 
 	fCount := len(files)
-	fileOffset := 0
 	ym := fw.a.GetYMax()
 	xs := fw.a.GetXStart()
 	ys := fw.a.GetYStart()
 
-	// Offset the files displayed if the selection can't
-	// be shown in the amount of lines we have
-	for sel > ym+fileOffset+invisCount {
-		fileOffset += ym + 1
-	}
-
 	s := 0
-	for i, x := 0, xs; i <= ym && i+fileOffset < fCount; i, x = i+1, xs {
-		f := files[i+fileOffset]
+	for i, x := 0, xs; i <= ym && i < fCount; i, x = i+1, xs {
+		f := files[i]
 		// Don't render "invisible" files
 		if f.CheckInvis() {
 			// Here we don't render anything so let's increase yMax as a hack
@@ -56,7 +49,7 @@ func (fw *FileWindow) RenderFiles(files []fs.File, sel, invisCount int, c config
 
 		// Reverse current selection if the file
 		// currently is selected by the UI
-		if i == sel-fileOffset {
+		if f == sel {
 			fStyle = fStyle.Reverse(true)
 		}
 

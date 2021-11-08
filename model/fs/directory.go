@@ -29,7 +29,8 @@ func (d Directory) GetDirState() config.DirConfig {
 
 // GetEmptyDirectory returns an empty directory
 func GetEmptyDirectory() Directory {
-	return Directory{}
+	f := File{f: fakefileinfo{name: "empty"}}
+	return Directory{files: []File{f}}
 }
 
 // IsEmpty checks if the directory
@@ -45,6 +46,9 @@ func (d Directory) GetSelection() int {
 
 // GetSelectedFile returns the currently selected file
 func (d Directory) GetSelectedFile() File {
+	if d.allInvis || len(d.files) == 0 {
+		return File{f: fakefileinfo{name: "empty"}}
+	}
 	return d.files[d.selection]
 }
 

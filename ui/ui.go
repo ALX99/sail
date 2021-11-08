@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/alx99/fly/config"
@@ -31,7 +32,7 @@ type UI interface {
 	Refresh()
 	PollEvent() tcell.Event
 	CloseMsgWindow()
-	GetMessageChan() chan<- Message
+	ShowMessage(msg Message)
 }
 
 type ui struct {
@@ -45,9 +46,9 @@ type ui struct {
 	cfg      config.UI
 	shutdown *sync.WaitGroup
 
-	dirChange     chan model.DirState
-	settingChange chan config.UI
-	messageChan   chan Message
+	dirChange        chan model.DirState
+	configChangeChan chan config.UI
+	messageChan      chan Message
 
 	resizeLock sync.Mutex
 }
@@ -78,10 +79,10 @@ func (ui *ui) initWindows() {
 	// cut the filename paths
 
 	tmpCoord := pos.NewCoord(0, 0)
-	ui.pd = CreateFileWindow(pos.CreateArea(tmpCoord, tmpCoord, pos.CreatePadding(0, 0, 0, 0)), ui.screen)
-	ui.wd = CreateFileWindow(pos.CreateArea(tmpCoord, tmpCoord, pos.CreatePadding(1, 0, 0, 0)), ui.screen)
-	ui.cd = CreateFileWindow(pos.CreateArea(tmpCoord, tmpCoord, pos.CreatePadding(1, 0, 0, 0)), ui.screen)
-	ui.mw = createMsgWindow(pos.CreateArea(tmpCoord, tmpCoord, pos.CreatePadding(0, 0, 0, 0)), ui.screen)
+	ui.pd = CreateFileWindow(pos.CreateArea(tmpCoord, tmpCoord, pos.Padding(0, 0, 0, 0)), ui.screen)
+	ui.wd = CreateFileWindow(pos.CreateArea(tmpCoord, tmpCoord, pos.Padding(1, 0, 0, 0)), ui.screen)
+	ui.cd = CreateFileWindow(pos.CreateArea(tmpCoord, tmpCoord, pos.Padding(1, 0, 0, 0)), ui.screen)
+	ui.mw = createMsgWindow(pos.CreateArea(tmpCoord, tmpCoord, pos.Padding(0, 0, 0, 0)), ui.screen)
 }
 
 // sync displays the new changes
@@ -93,8 +94,6 @@ func (ui *ui) sync() {
 		if ui.msgWindowVisible {
 			// Border around everything except the last row of the screen
 			drawOutline(pos.NewCoord(0, 0), pos.NewCoord(ui.w, ui.h-1), ui.screen, tcell.StyleDefault)
-			ui.screen.SetContent(0, ui.wd.a.GetEnd().Y+1, tcell.RuneLLCorner, nil, tcell.StyleDefault)
-			ui.screen.SetContent(ui.w, ui.wd.a.GetEnd().Y+1, tcell.RuneLRCorner, nil, tcell.StyleDefault)
 		} else {
 			// Border around everything
 			drawOutline(pos.NewCoord(0, 0), pos.NewCoord(ui.w, ui.h), ui.screen, tcell.StyleDefault)
@@ -132,7 +131,7 @@ func (ui *ui) PollEvent() tcell.Event {
 func (ui *ui) Shutdown() {
 	logger.LogMessage(id, "Shutting down", logger.DEBUG)
 	close(ui.dirChange)
-	close(ui.settingChange)
+	close(ui.configChangeChan)
 	// todo closing this here results in subsequent calls to rendering a folder where there is an error will result in a send on closed channel error
 
 	close(ui.messageChan)
@@ -175,11 +174,10 @@ func (ui *ui) resize() {
 	}
 
 	// todo need to write some kind of test for this
-	/*
-		ui.lgr.LogMessage(id, "pd render from "+strconv.Itoa(pdStart)+" to "+strconv.Itoa(wdStart-1), logger.DEBUG)
-		ui.lgr.LogMessage(id, "wd render from "+strconv.Itoa(wdStart)+" to "+strconv.Itoa(cdStart-1), logger.DEBUG)
-		ui.lgr.LogMessage(id, "cd render from "+strconv.Itoa(cdStart)+" to "+strconv.Itoa(w), logger.DEBUG)
-	*/
+
+	logger.LogMessage(id, fmt.Sprintf("pd render from (%d,%d) to (%d,%d)", xStart, yStart, wdStart-1, h), logger.DEBUG)
+	logger.LogMessage(id, fmt.Sprintf("wd render from (%d,%d) to (%d,%d)", wdStart, yStart, cdStart-1, h), logger.DEBUG)
+	logger.LogMessage(id, fmt.Sprintf("cd render from (%d,%d) to (%d,%d)", cdStart, yStart, w, h), logger.DEBUG)
 
 	// Update positions of filewindows
 	ui.pd.SetPos(pos.NewCoord(xStart, yStart), pos.NewCoord(wdStart-1, h))
@@ -197,6 +195,7 @@ func (ui *ui) CloseMsgWindow() {
 	// and end
 	ui.resize()
 }
+
 func (ui *ui) messageHandler() {
 	for msg := range ui.messageChan {
 		if !msg.isErr {
@@ -213,8 +212,8 @@ func (ui *ui) messageHandler() {
 	}
 }
 
-func (ui *ui) GetMessageChan() chan<- Message {
-	return ui.messageChan
+func (ui *ui) ShowMessage(msg Message) {
+	ui.messageChan <- msg
 }
 
 func (ui *ui) onDirChange() {
@@ -230,9 +229,9 @@ func (ui *ui) eventHandler() {
 	ui.shutdown.Add(1)
 	for {
 		select {
-		case cfg, ok := <-ui.settingChange:
+		case cfg, ok := <-ui.configChangeChan:
 			if !ok {
-				ui.settingChange = nil
+				ui.configChangeChan = nil
 			}
 			ui.cfg = cfg
 			ui.resize()
@@ -253,7 +252,7 @@ func (ui *ui) eventHandler() {
 			}
 		}
 
-		if ui.settingChange == nil && ui.messageChan == nil {
+		if ui.configChangeChan == nil && ui.messageChan == nil {
 			break
 		}
 	}
@@ -263,7 +262,7 @@ func (ui *ui) eventHandler() {
 // Helper function to render a directory
 func (ui *ui) renderDir(d fs.Directory, w *FileWindow) {
 	if files, err := d.GetFiles(); err == nil {
-		w.RenderFiles(files, d.GetSelection(), d.GetInvisibleFileCount(), ui.cfg)
+		w.RenderFiles(files, d.GetSelectedFile(), d.GetInvisibleFileCount(), ui.cfg)
 	} else {
 		ui.messageChan <- CreateMessage(err.Error(), true)
 	}
@@ -275,12 +274,12 @@ func Start(m model.Model) (UI, error) {
 
 	// setup chans
 	ui.dirChange = make(chan model.DirState, 10)
-	ui.settingChange = make(chan config.UI, 10)
+	ui.configChangeChan = make(chan config.UI, 10)
 	ui.messageChan = make(chan Message, 10)
 
 	ui.shutdown = &sync.WaitGroup{}
 
-	config.AddConfigObserver(ui.settingChange)
+	config.AddConfigObserver(ui.configChangeChan)
 	m.AddDirObserver(ui.dirChange)
 	return ui.start()
 }

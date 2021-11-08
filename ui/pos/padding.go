@@ -1,11 +1,11 @@
 package pos
 
-// Padding can provide padding for windows
-type Padding struct {
+// Pad can provide padding for windows
+type Pad struct {
 	start, end, top, bottom int
 }
 
 // CreatePadding creates a padding
-func CreatePadding(start, end, top, bottom int) Padding {
-	return Padding{start: start, end: end, top: top, bottom: bottom}
+func Padding(start, end, top, bottom int) Pad {
+	return Pad{start: start, end: end, top: top, bottom: bottom}
 }
