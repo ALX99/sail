@@ -262,7 +262,7 @@ func (ui *ui) eventHandler() {
 // Helper function to render a directory
 func (ui *ui) renderDir(d fs.Directory, w *FileWindow) {
 	if files, err := d.GetFiles(); err == nil {
-		w.RenderFiles(files, d.GetSelectedFile(), d.GetInvisibleFileCount(), ui.cfg)
+		w.RenderFiles(files, ui.cfg)
 	} else {
 		ui.messageChan <- CreateMessage(err.Error(), true)
 	}

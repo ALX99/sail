@@ -24,18 +24,18 @@ func (f File) GetFileInfo() os.FileInfo {
 	return f.f
 }
 
-// CheckSelected checks if the file is selected
-func (f File) CheckSelected() bool {
+// IsSelected checks if the file is selected
+func (f File) IsSelected() bool {
 	return f.selected
 }
 
-// CheckMarked checks if the file is marked
-func (f File) CheckMarked() bool {
+// IsMarked checks if the file is marked
+func (f File) IsMarked() bool {
 	return f.marked
 }
 
-// CheckInvis checks if the file
+// IsInvis checks if the file
 // is marked as invisible
-func (f File) CheckInvis() bool {
+func (f File) IsInvis() bool {
 	return f.invis
 }

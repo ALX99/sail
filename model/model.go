@@ -35,7 +35,7 @@ type Model interface {
 
 // CreateModel creates a new model
 func CreateModel() (Model, error) {
-	m := model{d: DirState{}, dirCache: make(map[string]*fs.Directory), dirConfig: config.DirConfig{}}
+	m := model{d: &DirState{}, dirCache: make(map[string]*fs.Directory), dirConfig: config.DirConfig{}}
 	if err := m.start(); err != nil {
 		return nil, err
 	}
@@ -44,7 +44,7 @@ func CreateModel() (Model, error) {
 
 // ? Do we want to cache more directories than just those displayed
 type model struct {
-	d         DirState
+	d         *DirState
 	observers []dirObserver
 	dirCache  map[string]*fs.Directory
 	dirConfig config.DirConfig
@@ -184,12 +184,12 @@ func (m *model) MarkFile() {
 func (m *model) AddDirObserver(o dirObserver) {
 	m.observers = append(m.observers, o)
 	// Notify them of the current dirstate
-	o <- m.d
+	o <- *m.d
 }
 
 func (m model) notifyObservers() {
 	for _, o := range m.observers {
-		o <- m.d
+		o <- *m.d
 	}
 }
 

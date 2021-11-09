@@ -26,7 +26,7 @@ func (fw *FileWindow) SetPos(start, end pos.Coord) {
 }
 
 // RenderFiles renders a list of files
-func (fw *FileWindow) RenderFiles(files []fs.File, sel fs.File, invisCount int, c config.UI) {
+func (fw *FileWindow) RenderFiles(files map[int]fs.File, c config.UI) {
 
 	fCount := len(files)
 	ym := fw.a.GetYMax()
@@ -37,7 +37,7 @@ func (fw *FileWindow) RenderFiles(files []fs.File, sel fs.File, invisCount int, 
 	for i, x := 0, xs; i <= ym && i < fCount; i, x = i+1, xs {
 		f := files[i]
 		// Don't render "invisible" files
-		if f.CheckInvis() {
+		if f.IsInvis() {
 			// Here we don't render anything so let's increase yMax as a hack
 			ym++
 			s++
@@ -49,14 +49,14 @@ func (fw *FileWindow) RenderFiles(files []fs.File, sel fs.File, invisCount int, 
 
 		// Reverse current selection if the file
 		// currently is selected by the UI
-		if f == sel {
+		if f.IsSelected() {
 			fStyle = fStyle.Reverse(true)
 		}
 
 		localXMax := fw.a.GetXMax()
 
 		// todo add setting to how files are marked
-		if f.CheckMarked() {
+		if f.IsMarked() {
 			fg, _, _ := fStyle.Decompose()
 			fStyle = fStyle.Underline(true).Italic(true).Bold(true)
 			if c.IndentMarks {
@@ -71,7 +71,7 @@ func (fw *FileWindow) RenderFiles(files []fs.File, sel fs.File, invisCount int, 
 		// If we are pushing an extra space in the beginning
 		// we have to increase the starting position and
 		// decrease xMax
-		if c.IndentAll || (c.IndentMarks && f.CheckMarked()) {
+		if c.IndentAll || (c.IndentMarks && f.IsMarked()) {
 			x++
 			localXMax--
 		}
