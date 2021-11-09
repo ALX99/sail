@@ -140,7 +140,14 @@ func (m *model) Navigate(d Direction) {
 			m.cacheDir(m.d.cd)
 			m.d.cd = m.d.wd
 			m.d.wd = m.d.pd
-			m.getandsetDir(filepath.Dir(m.d.wd.GetPath()), filepath.Base(m.d.wd.GetPath()), parentDir, *m.pdRequest)
+			if m.d.wd.CheckForParent() {
+				m.getandsetDir(filepath.Dir(m.d.wd.GetPath()), filepath.Base(m.d.wd.GetPath()), parentDir, *m.pdRequest)
+			} else {
+				m.logCurrentDirState()
+				d := fs.GetEmptyDirectory()
+				d.SetDirConfig(m.dirConfig)
+				m.setAndNotify(d, parentDir, *m.pdRequest)
+			}
 		}
 
 	case Right:
