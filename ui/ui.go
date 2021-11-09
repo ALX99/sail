@@ -196,22 +196,6 @@ func (ui *ui) CloseMsgWindow() {
 	ui.resize()
 }
 
-func (ui *ui) messageHandler() {
-	for msg := range ui.messageChan {
-		if !msg.isErr {
-			ui.mw.setMessage(msg.m, tcell.StyleDefault)
-		} else {
-			ui.mw.setMessage(msg.m, tcell.StyleDefault.Foreground(tcell.ColorRed))
-		}
-		if !ui.msgWindowVisible {
-			ui.msgWindowVisible = true
-			ui.resize()
-		} else {
-			ui.sync()
-		}
-	}
-}
-
 func (ui *ui) ShowMessage(msg Message) {
 	ui.messageChan <- msg
 }
@@ -231,28 +215,34 @@ func (ui *ui) eventHandler() {
 		select {
 		case cfg, ok := <-ui.configChangeChan:
 			if !ok {
+				logger.LogMessage(id, "configChangeChan is closed", logger.DEBUG)
 				ui.configChangeChan = nil
+			} else {
+				logger.LogMessage(id, fmt.Sprintf("got new config %+v", cfg), logger.DEBUG)
+				ui.cfg = cfg
+				ui.resize()
 			}
-			ui.cfg = cfg
-			ui.resize()
 		case msg, ok := <-ui.messageChan:
 			if !ok {
+				logger.LogMessage(id, "messageChan is closed", logger.DEBUG)
 				ui.messageChan = nil
-			}
-			if !msg.isErr {
-				ui.mw.setMessage(msg.m, tcell.StyleDefault)
 			} else {
-				ui.mw.setMessage(msg.m, tcell.StyleDefault.Foreground(tcell.ColorRed))
-			}
-			if !ui.msgWindowVisible {
-				ui.msgWindowVisible = true
-				ui.resize()
-			} else {
-				ui.sync()
+				if !msg.isErr {
+					ui.mw.setMessage(msg.m, tcell.StyleDefault)
+				} else {
+					ui.mw.setMessage(msg.m, tcell.StyleDefault.Foreground(tcell.ColorRed))
+				}
+				if !ui.msgWindowVisible {
+					ui.msgWindowVisible = true
+					ui.resize()
+				} else {
+					ui.sync()
+				}
 			}
 		}
 
 		if ui.configChangeChan == nil && ui.messageChan == nil {
+			logger.LogMessage(id, "exiting eventHandler loop", logger.DEBUG)
 			break
 		}
 	}

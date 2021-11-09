@@ -2,6 +2,7 @@ package controller
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 	"sync"
 
@@ -41,7 +42,7 @@ func (c *controller) commandLoop() {
 	for command := range c.cmdChan {
 		switch t := command.(type) {
 		case cmd.Cmd:
-			switch command.GetCommand() {
+			switch command {
 			case cmd.MoveUp:
 				c.m.Navigate(model.Up)
 			case cmd.MoveDown:
@@ -59,7 +60,7 @@ func (c *controller) commandLoop() {
 			case cmd.ToggleShowHidden:
 				c.m.ToggleShowHidden()
 			default:
-				logger.LogMessage(id, "Not implemented", logger.DEBUG)
+				logger.LogMessage(id, "Cmd not implemented", logger.ERROR)
 			}
 		case cmd.BoolCommand:
 			cfg := config.GetConfig()
@@ -74,8 +75,12 @@ func (c *controller) commandLoop() {
 				setBoolValue(&cfg.UI.IndentMarks, t)
 			case cmd.Rainbow:
 				setBoolValue(&cfg.UI.Rainbow, t)
+			default:
+				logger.LogMessage(id, "BoolCommand not implemented", logger.ERROR)
 			}
 			config.SetUIConfig(cfg.UI)
+		default:
+			logger.LogMessage(id, fmt.Sprintf("Hit default case. Nonexisten command: %+v", command), logger.ERROR)
 		}
 	}
 	c.shutDown.Done()
@@ -167,9 +172,11 @@ func (c *controller) handleKeyPressFocused(e *tcell.EventKey) {
 		cmd, err := parseCommand(c.commandBuffer[1:])
 		if err != nil {
 			c.ui.ShowMessage(ui.CreateMessage(err.Error(), true))
+			logger.LogError(id, "Error while parsing command", err)
 		} else {
 			c.cmdChan <- cmd
 		}
+
 		c.ui.CloseMsgWindow()
 		c.msgWindowFocus = !c.msgWindowFocus
 		c.commandBuffer = ""
@@ -187,14 +194,14 @@ func parseCommand(command string) (cmd.Command, error) {
 	s := strings.Split(command, " ")
 	if s[0] == "toggle" {
 		if len(s) < 2 {
-			return nil, errors.New("Too few arguments")
+			return nil, errors.New("too few arguments")
 		}
 		if c, ok := cmd.ParseCommand(s[1]); ok {
 			return cmd.CreateBoolCommand(c), nil
 		}
-		return nil, errors.New("Command '" + s[1] + "' not found!")
+		return nil, errors.New("command '" + s[1] + "' not found!")
 	}
-	return nil, nil
+	return nil, errors.New("command '" + command + "' not found")
 }
 
 // helper to set a value from a CommandBoolean

@@ -28,21 +28,23 @@ func (fw *FileWindow) SetPos(start, end pos.Coord) {
 // RenderFiles renders a list of files
 func (fw *FileWindow) RenderFiles(files map[int]fs.File, c config.UI) {
 
-	fCount := len(files)
-	ym := fw.a.GetYMax()
-	xs := fw.a.GetXStart()
-	ys := fw.a.GetYStart()
+	yMax := fw.a.GetYMax()
+	xStart := fw.a.GetXStart()
+	yStart := fw.a.GetYStart()
 
-	s := 0
-	for i, x := 0, xs; i <= ym && i < fCount; i, x = i+1, xs {
-		f := files[i]
-		// Don't render "invisible" files
-		if f.IsInvis() {
-			// Here we don't render anything so let's increase yMax as a hack
-			ym++
-			s++
+	visibleFiles := make(map[int]fs.File)
+
+	fCount := 0
+	for i := 0; i < len(files); i++ {
+		if files[i].IsInvis() {
 			continue
 		}
+		visibleFiles[fCount] = files[i]
+		fCount++
+	}
+
+	for y, x := yStart, xStart; y <= yMax && y < fCount; y, x = y+1, xStart {
+		f := visibleFiles[y]
 		fName := f.GetFileInfo().Name()
 		fLen := len(fName)
 		fStyle := config.GetStyle(f.GetFileInfo())
@@ -61,32 +63,34 @@ func (fw *FileWindow) RenderFiles(files map[int]fs.File, c config.UI) {
 			fStyle = fStyle.Underline(true).Italic(true).Bold(true)
 			if c.IndentMarks {
 				if c.Rainbow {
-					fw.s.SetContent(x, ys+i-s, '+', nil, tcell.StyleDefault.Foreground(fg))
+					fw.s.SetContent(x, y, '+', nil, tcell.StyleDefault.Foreground(fg))
 				} else {
-					fw.s.SetContent(x, ys+i-s, '+', nil, tcell.StyleDefault)
+					fw.s.SetContent(x, y, '+', nil, tcell.StyleDefault)
 				}
-				// fw.s.SetContent(x, ys+i, ' ', nil, fStyle.Background(fg))
+				x++
+				localXMax-- // todo this might be an error to have this?
 			}
 		}
 		// If we are pushing an extra space in the beginning
 		// we have to increase the starting position and
 		// decrease xMax
-		if c.IndentAll || (c.IndentMarks && f.IsMarked()) {
+		if c.IndentAll && !f.IsMarked() {
 			x++
-			localXMax--
-		}
-		limit := util.Min(localXMax, fLen-1)
-		j := 0
-		for _ = 0; j <= limit; j, x = j+1, x+1 {
-			fw.s.SetContent(x, ys+i-s, rune(fName[j]), nil, fStyle)
+			localXMax-- // todo this might be an error to have this?
 		}
 
-		if j < fLen {
+		xLimit := util.Min(localXMax, fLen-1)
+		xPos := 0
+		for xPos = 0; xPos <= xLimit; xPos, x = xPos+1, x+1 {
+			fw.s.SetContent(x, y, rune(fName[xPos]), nil, fStyle)
+		}
+
+		if xPos < fLen {
 			// Did not manage to render full filename
-			fw.s.SetContent(x-1, ys+i-s, '~', nil, fStyle)
-		} else if c.DirCandy && f.GetFileInfo().IsDir() && j-1 < localXMax {
+			fw.s.SetContent(x-1, y, '~', nil, fStyle)
+		} else if c.DirCandy && f.GetFileInfo().IsDir() && xPos-1 < localXMax {
 			// If extra space is available
-			fw.s.SetContent(x, ys+i-s, '/', nil, tcell.StyleDefault)
+			fw.s.SetContent(x, y, '/', nil, tcell.StyleDefault)
 		}
 	}
 }

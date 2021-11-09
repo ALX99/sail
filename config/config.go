@@ -33,7 +33,7 @@ type UI struct {
 	styles      map[string]tcell.Style
 }
 
-// DirSettings holds directory settings
+// DirConfig holds directory settings
 type DirConfig struct {
 	HideHidden bool
 }
