@@ -39,7 +39,7 @@ func (mw msgWindow) Draw(screen tcell.Screen) {
 		screen.SetContent(x, y, c, nil, mw.st)
 		x++
 		// Todo does not work
-		if x == mw.a.GetXMax() {
+		if x == mw.a.GetXEnd() {
 			y++
 			x = mw.a.GetXStart()
 		}

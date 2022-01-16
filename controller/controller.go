@@ -209,7 +209,7 @@ func setBoolValue(b *bool, c cmd.BoolCommand) {
 	if c.HasValueSet() {
 		*b = c.GetValue()
 	}
-	// If a BoolCommand has no value set it
+	// If a BoolCommand has no value set
 	// is interpreted as a toggle
 	*b = !*b
 }

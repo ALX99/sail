@@ -10,10 +10,10 @@ import (
 
 // FileWindow is a window holding files
 type FileWindow struct {
-	a             pos.Area
-	files         map[int]fs.File
-	prevSelection int
-	config        filewWindowConfig
+	a       pos.Area
+	visible bool
+	files   map[int]fs.File
+	config  filewWindowConfig
 }
 type filewWindowConfig struct {
 	indentMarks bool
@@ -24,7 +24,7 @@ type filewWindowConfig struct {
 
 // CreateFileWindow Creates a filewindow
 func CreateFileWindow(a pos.Area) FileWindow {
-	fw := FileWindow{a: a}
+	fw := FileWindow{a: a, visible: true}
 	return fw
 }
 
@@ -44,8 +44,11 @@ func (fw *FileWindow) SetFiles(files map[int]fs.File) {
 
 // Draw renders a the filewindow component
 func (fw *FileWindow) Draw(screen tcell.Screen) {
+	if !fw.visible {
+		return
+	}
 
-	yMax := fw.a.GetYMax()
+	yEnd := fw.a.GetYEnd()
 	xStart := fw.a.GetXStart()
 	yStart := fw.a.GetYStart()
 	fCount := 0
@@ -67,11 +70,11 @@ func (fw *FileWindow) Draw(screen tcell.Screen) {
 		fCount++
 	}
 
-	for selectionIndex > yMax+offset {
+	for selectionIndex > yEnd+offset-3 {
 		offset++
 	}
 
-	for y, x := yStart, xStart; y <= yMax && y+offset < fCount; y, x = y+1, xStart {
+	for y, x := yStart, xStart; y <= yEnd && y+offset < fCount; y, x = y+1, xStart {
 		f, ok := visibleFiles[y+offset]
 		if !ok {
 			panic("programmer error")
@@ -86,7 +89,7 @@ func (fw *FileWindow) Draw(screen tcell.Screen) {
 			fStyle = fStyle.Reverse(true)
 		}
 
-		localXMax := fw.a.GetXMax()
+		localXMax := fw.a.GetXEnd()
 
 		// todo add setting to how files are marked
 		if f.IsMarked() {

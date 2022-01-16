@@ -38,6 +38,7 @@ type UI interface {
 type ui struct {
 	screen     tcell.Screen
 	wd, pd, cd FileWindow
+	pw         PreviewWindow
 	w, h       int
 	mw         *msgWindow
 
@@ -81,11 +82,13 @@ func (ui *ui) initWindows() {
 	ui.pd = CreateFileWindow(pos.CreateArea(tmpCoord, tmpCoord, pos.Padding(0, 0, 0, 0)))
 	ui.wd = CreateFileWindow(pos.CreateArea(tmpCoord, tmpCoord, pos.Padding(1, 0, 0, 0)))
 	ui.cd = CreateFileWindow(pos.CreateArea(tmpCoord, tmpCoord, pos.Padding(1, 0, 0, 0)))
+	ui.pw = CreatePreviewWindow(pos.CreateArea(tmpCoord, tmpCoord, pos.Padding(1, 0, 0, 0)))
 	ui.mw = createMsgWindow(pos.CreateArea(tmpCoord, tmpCoord, pos.Padding(0, 0, 0, 0)))
 
 	ui.components = append(ui.components, &ui.pd)
 	ui.components = append(ui.components, &ui.wd)
 	ui.components = append(ui.components, &ui.cd)
+	ui.components = append(ui.components, &ui.pw)
 	ui.components = append(ui.components, ui.mw)
 }
 
@@ -182,7 +185,10 @@ func (ui *ui) resize() {
 	// Update positions of filewindows
 	ui.pd.SetArea(pos.CreateArea(pos.NewCoord(xStart, yStart), pos.NewCoord(wdStart-1, h), pos.Padding(0, 0, 0, 0)))
 	ui.wd.SetArea(pos.CreateArea(pos.NewCoord(wdStart, yStart), pos.NewCoord(cdStart-1, h), pos.Padding(1, 0, 0, 0)))
-	ui.cd.SetArea(pos.CreateArea(pos.NewCoord(cdStart, yStart), pos.NewCoord(w, h), pos.Padding(1, 0, 0, 0)))
+
+	cdArea := pos.CreateArea(pos.NewCoord(cdStart, yStart), pos.NewCoord(w, h), pos.Padding(1, 0, 0, 0))
+	ui.cd.SetArea(cdArea)
+	ui.pw.SetArea(cdArea)
 
 	ui.resizeLock.Unlock()
 	ui.sync()
@@ -206,7 +212,16 @@ func (ui *ui) onDirChange() {
 	for dirState := range ui.dirChange {
 		ui.setFWFiles(dirState.GetPD(), &ui.pd)
 		ui.setFWFiles(dirState.GetWD(), &ui.wd)
-		ui.setFWFiles(dirState.GetCD(), &ui.cd)
+
+		if dirState.PreviewWDFile() {
+			ui.cd.visible = false
+			ui.pw.visible = true
+			ui.pw.SetPreviewFile(dirState.GetWD().GetSelectedFile())
+		} else {
+			ui.cd.visible = true
+			ui.pw.visible = false
+			ui.setFWFiles(dirState.GetCD(), &ui.cd)
+		}
 		ui.sync()
 	}
 }

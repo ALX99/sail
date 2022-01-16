@@ -110,7 +110,7 @@ func GetDirectory(path string, conf config.DirConfig) Directory {
 	var i int
 	var fInfo fs.FileInfo
 	for i, fInfo = range fInfos {
-		files[i] = createFile(fInfo)
+		files[i] = createFile(fInfo, path)
 	}
 	d := Directory{path: path, files: files, queried: time.Now()}
 	if i > 0 {
@@ -149,7 +149,7 @@ func (d *Directory) Refresh(conf config.DirConfig) {
 
 	files := make(map[int]File, len(fInfos))
 	for i, fInfo := range fInfos {
-		files[i] = createFile(fInfo)
+		files[i] = createFile(fInfo, d.path)
 	}
 
 	if !d.IsEmpty() {

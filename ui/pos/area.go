@@ -6,7 +6,7 @@ type Area struct {
 	p          Pad
 
 	// Max characters allowed to render in a direction
-	xMax, yMax int
+	xEnd, yEnd int
 	// Starting positions
 	xStart, yStart int
 }
@@ -26,8 +26,8 @@ func (a *Area) UpdateArea(start, end Coord) {
 
 // calculate starting positions and limits
 func (a *Area) calculateLimits() {
-	a.yMax = (a.end.Y - a.p.bottom) - (a.start.Y + a.p.top)
-	a.xMax = (a.end.X - a.p.end) - (a.start.X + a.p.start)
+	a.yEnd = (a.end.Y - a.p.bottom)
+	a.xEnd = (a.end.X - a.p.end)
 	a.xStart = a.start.X + a.p.start
 	a.yStart = a.start.Y + a.p.top
 }
@@ -38,11 +38,11 @@ func (a Area) GetStart() Coord {
 func (a Area) GetEnd() Coord {
 	return a.end
 }
-func (a Area) GetXMax() int {
-	return a.xMax
+func (a Area) GetXEnd() int {
+	return a.xEnd
 }
-func (a Area) GetYMax() int {
-	return a.yMax
+func (a Area) GetYEnd() int {
+	return a.yEnd
 }
 func (a Area) GetXStart() int {
 	return a.xStart

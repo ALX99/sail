@@ -9,7 +9,8 @@ type DirState struct {
 	// Parent Directory
 	pd fs.Directory
 	// Child directory
-	cd fs.Directory
+	cd            fs.Directory
+	previewWDFile bool
 }
 
 // GetPD returns the parent directory
@@ -25,4 +26,9 @@ func (d DirState) GetWD() fs.Directory {
 // GetCD returns the parent directory
 func (d DirState) GetCD() fs.Directory {
 	return d.cd
+}
+
+// PreviewWDFile returns true if we wish to preview the WD file
+func (d DirState) PreviewWDFile() bool {
+	return d.previewWDFile
 }

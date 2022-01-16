@@ -179,6 +179,7 @@ func (m *model) Navigate(d Direction) {
 		m.d.wd.SelectBottom()
 		m.setCD()
 	}
+	m.d.previewWDFile = !m.d.wd.GetSelectedFile().GetFileInfo().IsDir()
 	m.notifyObservers()
 }
 
@@ -194,7 +195,7 @@ func (m *model) AddDirObserver(o dirObserver) {
 	o <- *m.d
 }
 
-func (m model) notifyObservers() {
+func (m *model) notifyObservers() {
 	for _, o := range m.observers {
 		o <- *m.d
 	}
