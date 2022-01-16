@@ -36,13 +36,11 @@ type UI interface {
 }
 
 type ui struct {
-	screen           tcell.Screen
-	wd, pd, cd       FileWindow
-	w, h             int
-	msgWindowVisible bool
-	mw               *msgWindow
+	screen     tcell.Screen
+	wd, pd, cd FileWindow
+	w, h       int
+	mw         *msgWindow
 
-	d        model.DirState
 	cfg      config.UI
 	shutdown *sync.WaitGroup
 
@@ -51,6 +49,7 @@ type ui struct {
 	messageChan      chan Message
 
 	resizeLock sync.Mutex
+	components []drawable
 }
 
 func (ui *ui) start() (UI, error) {
@@ -79,19 +78,23 @@ func (ui *ui) initWindows() {
 	// cut the filename paths
 
 	tmpCoord := pos.NewCoord(0, 0)
-	ui.pd = CreateFileWindow(pos.CreateArea(tmpCoord, tmpCoord, pos.Padding(0, 0, 0, 0)), ui.screen)
-	ui.wd = CreateFileWindow(pos.CreateArea(tmpCoord, tmpCoord, pos.Padding(1, 0, 0, 0)), ui.screen)
-	ui.cd = CreateFileWindow(pos.CreateArea(tmpCoord, tmpCoord, pos.Padding(1, 0, 0, 0)), ui.screen)
-	ui.mw = createMsgWindow(pos.CreateArea(tmpCoord, tmpCoord, pos.Padding(0, 0, 0, 0)), ui.screen)
+	ui.pd = CreateFileWindow(pos.CreateArea(tmpCoord, tmpCoord, pos.Padding(0, 0, 0, 0)))
+	ui.wd = CreateFileWindow(pos.CreateArea(tmpCoord, tmpCoord, pos.Padding(1, 0, 0, 0)))
+	ui.cd = CreateFileWindow(pos.CreateArea(tmpCoord, tmpCoord, pos.Padding(1, 0, 0, 0)))
+	ui.mw = createMsgWindow(pos.CreateArea(tmpCoord, tmpCoord, pos.Padding(0, 0, 0, 0)))
+
+	ui.components = append(ui.components, &ui.pd)
+	ui.components = append(ui.components, &ui.wd)
+	ui.components = append(ui.components, &ui.cd)
+	ui.components = append(ui.components, ui.mw)
 }
 
 // sync displays the new changes
 func (ui *ui) sync() {
-	// todo in the future every window should be responsible for clearing itself, and redrawing borders and stuff all the time won't be necessary
 	ui.screen.Clear()
 
 	if ui.cfg.Border {
-		if ui.msgWindowVisible {
+		if ui.mw.visible {
 			// Border around everything except the last row of the screen
 			drawOutline(pos.NewCoord(0, 0), pos.NewCoord(ui.w, ui.h-1), ui.screen, tcell.StyleDefault)
 		} else {
@@ -100,13 +103,10 @@ func (ui *ui) sync() {
 		}
 	}
 
-	ui.renderDir(ui.d.GetPD(), &ui.pd)
-	ui.renderDir(ui.d.GetWD(), &ui.wd)
-	ui.renderDir(ui.d.GetCD(), &ui.cd)
-
-	if ui.msgWindowVisible {
-		ui.mw.show()
+	for _, component := range ui.components {
+		component.Draw(ui.screen)
 	}
+
 	ui.screen.Show()
 }
 
@@ -158,8 +158,8 @@ func (ui *ui) resize() {
 	wdStart := pdWidth + 1
 	cdStart := pdWidth + int(baseRatio*ui.cfg.WDRatio) + 1
 
-	if ui.msgWindowVisible {
-		ui.mw.SetPos(pos.NewCoord(0, h), pos.NewCoord(w, h))
+	if ui.mw.visible {
+		ui.mw.SetArea(pos.CreateArea(pos.NewCoord(0, h), pos.NewCoord(w, h), pos.Padding(0, 0, 0, 0)))
 		// Squish height by 1px, which it taken up by the messageWindow
 		h--
 	}
@@ -180,16 +180,16 @@ func (ui *ui) resize() {
 	logger.LogMessage(id, fmt.Sprintf("cd render from (%d,%d) to (%d,%d)", cdStart, yStart, w, h), logger.DEBUG)
 
 	// Update positions of filewindows
-	ui.pd.SetPos(pos.NewCoord(xStart, yStart), pos.NewCoord(wdStart-1, h))
-	ui.wd.SetPos(pos.NewCoord(wdStart, yStart), pos.NewCoord(cdStart-1, h))
-	ui.cd.SetPos(pos.NewCoord(cdStart, yStart), pos.NewCoord(w, h))
+	ui.pd.SetArea(pos.CreateArea(pos.NewCoord(xStart, yStart), pos.NewCoord(wdStart-1, h), pos.Padding(0, 0, 0, 0)))
+	ui.wd.SetArea(pos.CreateArea(pos.NewCoord(wdStart, yStart), pos.NewCoord(cdStart-1, h), pos.Padding(1, 0, 0, 0)))
+	ui.cd.SetArea(pos.CreateArea(pos.NewCoord(cdStart, yStart), pos.NewCoord(w, h), pos.Padding(1, 0, 0, 0)))
 
 	ui.resizeLock.Unlock()
 	ui.sync()
 }
 
 func (ui *ui) CloseMsgWindow() {
-	ui.msgWindowVisible = false
+	ui.mw.visible = false
 	// We have to resize here since we have
 	// to recalculate where filewindows start
 	// and end
@@ -202,15 +202,18 @@ func (ui *ui) ShowMessage(msg Message) {
 
 func (ui *ui) onDirChange() {
 	ui.shutdown.Add(1)
-	for d := range ui.dirChange {
-		ui.d = d
+	defer ui.shutdown.Done()
+	for dirState := range ui.dirChange {
+		ui.setFWFiles(dirState.GetPD(), &ui.pd)
+		ui.setFWFiles(dirState.GetWD(), &ui.wd)
+		ui.setFWFiles(dirState.GetCD(), &ui.cd)
 		ui.sync()
 	}
-	ui.shutdown.Done()
 }
 
 func (ui *ui) eventHandler() {
 	ui.shutdown.Add(1)
+	defer ui.shutdown.Done()
 	for {
 		select {
 		case cfg, ok := <-ui.configChangeChan:
@@ -220,6 +223,15 @@ func (ui *ui) eventHandler() {
 			} else {
 				logger.LogMessage(id, fmt.Sprintf("got new config %+v", cfg), logger.DEBUG)
 				ui.cfg = cfg
+				fwConfig := filewWindowConfig{
+					dirCandy:    cfg.DirCandy,
+					indentMarks: cfg.IndentMarks,
+					indentAll:   cfg.IndentAll,
+					rainbow:     cfg.Rainbow,
+				}
+				ui.cd.setConfig(fwConfig)
+				ui.wd.setConfig(fwConfig)
+				ui.pd.setConfig(fwConfig)
 				ui.resize()
 			}
 		case msg, ok := <-ui.messageChan:
@@ -227,13 +239,13 @@ func (ui *ui) eventHandler() {
 				logger.LogMessage(id, "messageChan is closed", logger.DEBUG)
 				ui.messageChan = nil
 			} else {
-				if !msg.isErr {
-					ui.mw.setMessage(msg.m, tcell.StyleDefault)
-				} else {
+				if msg.isErr {
 					ui.mw.setMessage(msg.m, tcell.StyleDefault.Foreground(tcell.ColorRed))
+				} else {
+					ui.mw.setMessage(msg.m, tcell.StyleDefault)
 				}
-				if !ui.msgWindowVisible {
-					ui.msgWindowVisible = true
+				if !ui.mw.visible {
+					ui.mw.visible = true
 					ui.resize()
 				} else {
 					ui.sync()
@@ -246,13 +258,12 @@ func (ui *ui) eventHandler() {
 			break
 		}
 	}
-	ui.shutdown.Done()
 }
 
 // Helper function to render a directory
-func (ui *ui) renderDir(d fs.Directory, w *FileWindow) {
+func (ui *ui) setFWFiles(d fs.Directory, w *FileWindow) {
 	if files, err := d.GetFiles(); err == nil {
-		w.RenderFiles(files, ui.cfg)
+		w.SetFiles(files)
 	} else {
 		ui.messageChan <- CreateMessage(err.Error(), true)
 	}

@@ -10,41 +10,72 @@ import (
 
 // FileWindow is a window holding files
 type FileWindow struct {
-	a pos.Area
-	s tcell.Screen
+	a             pos.Area
+	files         map[int]fs.File
+	prevSelection int
+	config        filewWindowConfig
+}
+type filewWindowConfig struct {
+	indentMarks bool
+	indentAll   bool
+	dirCandy    bool
+	rainbow     bool
 }
 
 // CreateFileWindow Creates a filewindow
-func CreateFileWindow(a pos.Area, s tcell.Screen) FileWindow {
-	fw := FileWindow{a: a, s: s}
+func CreateFileWindow(a pos.Area) FileWindow {
+	fw := FileWindow{a: a}
 	return fw
 }
 
-// SetPos updates the position where the window is allowed to be drawn
-func (fw *FileWindow) SetPos(start, end pos.Coord) {
-	fw.a.UpdateArea(start, end)
+// SetArea sets the area where the filewindow can render things
+func (fw *FileWindow) SetArea(area pos.Area) {
+	fw.a = area
 }
 
-// RenderFiles renders a list of files
-func (fw *FileWindow) RenderFiles(files map[int]fs.File, c config.UI) {
+func (fw *FileWindow) setConfig(config filewWindowConfig) {
+	fw.config = config
+}
+
+// SetFiles sets the files inside of the filewindow
+func (fw *FileWindow) SetFiles(files map[int]fs.File) {
+	fw.files = files
+}
+
+// Draw renders a the filewindow component
+func (fw *FileWindow) Draw(screen tcell.Screen) {
 
 	yMax := fw.a.GetYMax()
 	xStart := fw.a.GetXStart()
 	yStart := fw.a.GetYStart()
+	fCount := 0
+	selectionIndex := 0
+	offset := 0
 
 	visibleFiles := make(map[int]fs.File)
 
-	fCount := 0
-	for i := 0; i < len(files); i++ {
-		if files[i].IsInvis() {
+	// Get all non invisible files and the currently
+	// selected file's index
+	for i := 0; i < len(fw.files); i++ {
+		if fw.files[i].IsInvis() {
 			continue
 		}
-		visibleFiles[fCount] = files[i]
+		if fw.files[i].IsSelected() {
+			selectionIndex = fCount
+		}
+		visibleFiles[fCount] = fw.files[i]
 		fCount++
 	}
 
-	for y, x := yStart, xStart; y <= yMax && y < fCount; y, x = y+1, xStart {
-		f := visibleFiles[y]
+	for selectionIndex > yMax+offset {
+		offset++
+	}
+
+	for y, x := yStart, xStart; y <= yMax && y+offset < fCount; y, x = y+1, xStart {
+		f, ok := visibleFiles[y+offset]
+		if !ok {
+			panic("programmer error")
+		}
 		fName := f.GetFileInfo().Name()
 		fLen := len(fName)
 		fStyle := config.GetStyle(f.GetFileInfo())
@@ -59,13 +90,13 @@ func (fw *FileWindow) RenderFiles(files map[int]fs.File, c config.UI) {
 
 		// todo add setting to how files are marked
 		if f.IsMarked() {
-			fg, _, _ := fStyle.Decompose()
 			fStyle = fStyle.Underline(true).Italic(true).Bold(true)
-			if c.IndentMarks {
-				if c.Rainbow {
-					fw.s.SetContent(x, y, '+', nil, tcell.StyleDefault.Foreground(fg))
+			if fw.config.indentMarks {
+				if fw.config.rainbow {
+					fg, _, _ := fStyle.Decompose()
+					screen.SetContent(x, y, '+', nil, tcell.StyleDefault.Foreground(fg))
 				} else {
-					fw.s.SetContent(x, y, '+', nil, tcell.StyleDefault)
+					screen.SetContent(x, y, '+', nil, tcell.StyleDefault)
 				}
 				x++
 				localXMax-- // todo this might be an error to have this?
@@ -74,7 +105,7 @@ func (fw *FileWindow) RenderFiles(files map[int]fs.File, c config.UI) {
 		// If we are pushing an extra space in the beginning
 		// we have to increase the starting position and
 		// decrease xMax
-		if c.IndentAll && !f.IsMarked() {
+		if fw.config.indentAll && !f.IsMarked() {
 			x++
 			localXMax-- // todo this might be an error to have this?
 		}
@@ -82,15 +113,15 @@ func (fw *FileWindow) RenderFiles(files map[int]fs.File, c config.UI) {
 		xLimit := util.Min(localXMax, fLen-1)
 		xPos := 0
 		for xPos = 0; xPos <= xLimit; xPos, x = xPos+1, x+1 {
-			fw.s.SetContent(x, y, rune(fName[xPos]), nil, fStyle)
+			screen.SetContent(x, y, rune(fName[xPos]), nil, fStyle)
 		}
 
 		if xPos < fLen {
 			// Did not manage to render full filename
-			fw.s.SetContent(x-1, y, '~', nil, fStyle)
-		} else if c.DirCandy && f.GetFileInfo().IsDir() && xPos-1 < localXMax {
+			screen.SetContent(x-1, y, '~', nil, fStyle)
+		} else if fw.config.dirCandy && f.GetFileInfo().IsDir() && xPos-1 < localXMax {
 			// If extra space is available
-			fw.s.SetContent(x, y, '/', nil, tcell.StyleDefault)
+			screen.SetContent(x, y, '/', nil, tcell.StyleDefault)
 		}
 	}
 }
