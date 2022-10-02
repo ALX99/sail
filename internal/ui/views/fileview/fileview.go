@@ -31,6 +31,7 @@ type Window struct {
 	path     string
 	files    []fs.DirEntry
 	moveDown bool
+	err      error
 
 	id             ID
 	h, w           int
@@ -59,7 +60,7 @@ func New(path string, width, height int) Window {
 func (fw Window) Init() tea.Msg {
 	files, err := os.ReadDir(fw.path)
 	if err != nil {
-		panic(err) // todo
+		return windowMsg{to: fw.id, msg: err}
 	}
 	return windowMsg{to: fw.id, msg: files}
 }
@@ -70,8 +71,18 @@ func (fw Window) Update(msg tea.Msg) (Window, tea.Cmd) {
 		if msg.to != fw.id {
 			break
 		}
-		fw.files = msg.msg.([]os.DirEntry)
-		fw.visibleFileLen = len(fw.files)
+		switch msg := msg.msg.(type) {
+		case []fs.DirEntry:
+			fw.files = msg
+			fw.visibleFileLen = len(fw.files)
+			fw.err = nil
+
+		case error:
+			fw.err = msg
+
+		default:
+			panic("developer error")
+		}
 
 	case tea.WindowSizeMsg:
 		fw.h, fw.w = msg.Height, msg.Width
@@ -81,6 +92,10 @@ func (fw Window) Update(msg tea.Msg) (Window, tea.Cmd) {
 }
 
 func (fw Window) View() string {
+	if fw.err != nil { // check error first
+		return fw.err.Error()
+	}
+
 	var nameBuilder strings.Builder
 	names := make([]string, 0, fw.visibleFileLen)
 	drawn := 0
