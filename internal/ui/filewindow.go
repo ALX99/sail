@@ -79,27 +79,27 @@ func (fw *fileWindow) calcViewPort(moveDown bool) {
 }
 
 func (fw fileWindow) View() string {
-	var v strings.Builder
+	var nameBuilder strings.Builder
+	names := make([]string, 0, fw.visibleFileLen)
 	drawn := 0
 
 	for i := fw.fileStart; i < fw.visibleFileLen && drawn < fw.h; i++ {
 		drawn++
 		if i == fw.pos {
-			v.WriteString("> ")
+			nameBuilder.WriteString("> ")
 		}
 
-		v.WriteString(fw.files[i].Name())
+		nameBuilder.WriteString(fw.files[i].Name())
 
 		if fw.files[i].IsDir() {
-			v.WriteString("/")
+			nameBuilder.WriteString("/")
 		}
 
-		if drawn+1 <= fw.h && i < fw.visibleFileLen-1 {
-			v.WriteString("\n")
-		}
+		names = append(names, nameBuilder.String())
+		nameBuilder.Reset()
 	}
 
-	return v.String()
+	return strings.Join(names, "\n")
 }
 
 func (fw fileWindow) readFiles() tea.Msg {
