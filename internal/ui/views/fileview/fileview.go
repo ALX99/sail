@@ -1,4 +1,4 @@
-package ui
+package fileview
 
 import (
 	"io/fs"
@@ -17,12 +17,12 @@ const (
 	Down
 )
 
-type fileWindowMsg struct {
+type windowMsg struct {
 	msg interface{}
 	to  ID
 }
 
-type fileWindow struct {
+type Window struct {
 	path     string
 	files    []fs.DirEntry
 	moveDown bool
@@ -38,23 +38,23 @@ type fileWindow struct {
 	scrollPadding int
 }
 
-func NewFileWindow(path string, id ID) fileWindow {
-	return fileWindow{id: id, path: path, scrollPadding: 2}
+func New(path string, id ID) Window {
+	return Window{id: id, path: path, scrollPadding: 2}
 }
 
 // Init will return the necessary tea.Msg for the fileWindow
 // to become initialized and ready
-func (fw fileWindow) Init() tea.Msg {
+func (fw Window) Init() tea.Msg {
 	files, err := os.ReadDir(fw.path)
 	if err != nil {
 		panic(err) // todo
 	}
-	return fileWindowMsg{to: fw.id, msg: files}
+	return windowMsg{to: fw.id, msg: files}
 }
 
-func (fw fileWindow) Update(msg tea.Msg) (fileWindow, tea.Cmd) {
+func (fw Window) Update(msg tea.Msg) (Window, tea.Cmd) {
 	switch msg := msg.(type) {
-	case fileWindowMsg:
+	case windowMsg:
 		if msg.to != fw.id {
 			break
 		}
@@ -68,7 +68,7 @@ func (fw fileWindow) Update(msg tea.Msg) (fileWindow, tea.Cmd) {
 	return fw, nil
 }
 
-func (fw fileWindow) View() string {
+func (fw Window) View() string {
 	var nameBuilder strings.Builder
 	names := make([]string, 0, fw.visibleFileLen)
 	drawn := 0
@@ -92,7 +92,8 @@ func (fw fileWindow) View() string {
 	return strings.Join(names, "\n")
 }
 
-func (fw *fileWindow) move(dir Direction) {
+// Move moves the cursor up or down
+func (fw *Window) Move(dir Direction) {
 	if dir == Up {
 		if fw.pos > 0 {
 			fw.pos -= 1
