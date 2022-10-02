@@ -21,11 +21,11 @@ type fileWindow struct {
 	visibleFileLen int
 
 	// Configurable settings
-	padding int
+	scrollPadding int
 }
 
 func NewFileWindow(path string) fileWindow {
-	return fileWindow{path: path, padding: 2}
+	return fileWindow{path: path, scrollPadding: 2}
 }
 
 func (fw fileWindow) Init() tea.Cmd {
@@ -42,15 +42,7 @@ func (fw fileWindow) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		fw.h, fw.w = msg.Height, msg.Width
 
 	case tea.KeyMsg:
-		switch msg.Type {
-		case tea.KeyCtrlC:
-			return fw, tea.Quit
-		}
-
 		switch kp := msg.String(); kp {
-		case "ctrl+c", "q":
-			return fw, tea.Quit
-
 		case "e":
 			if fw.pos > 0 {
 				fw.pos -= 1
@@ -69,11 +61,11 @@ func (fw fileWindow) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (fw *fileWindow) calcViewPort(moveDown bool) {
-	if moveDown && fw.pos-fw.fileStart+1 > (fw.h-fw.padding) {
+	if moveDown && fw.pos-fw.fileStart+1 > (fw.h-fw.scrollPadding) {
 		fw.fileStart = util.Min(fw.visibleFileLen-fw.h, fw.fileStart+1)
 	}
 
-	if !moveDown && fw.fileStart > (fw.pos-fw.padding) {
+	if !moveDown && fw.fileStart > (fw.pos-fw.scrollPadding) {
 		fw.fileStart = util.Max(0, fw.fileStart-1)
 	}
 }

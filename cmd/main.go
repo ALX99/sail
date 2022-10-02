@@ -9,9 +9,9 @@ import (
 )
 
 func main() {
-	fw := ui.NewFileWindow("/")
+	mw := ui.NewMainWindow()
 
-	if err := tea.NewProgram(fw).Start(); err != nil {
+	if err := tea.NewProgram(mw).Start(); err != nil {
 		fmt.Printf("Uh oh, there was an error: %v\n", err)
 		os.Exit(1)
 	}
