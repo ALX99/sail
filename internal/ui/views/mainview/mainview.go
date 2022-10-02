@@ -13,9 +13,9 @@ type mainView struct {
 
 func New() mainView {
 	fws := make([]fileview.Window, 3)
-	fws[0] = fileview.New("/")
-	fws[1] = fileview.New("/var")
-	fws[2] = fileview.New("/var/lib")
+	fws[0] = fileview.New("/", 0, 0)
+	fws[1] = fileview.New("/var", 0, 0)
+	fws[2] = fileview.New("/var/lib", 0, 0)
 
 	return mainView{fws: fws}
 }
@@ -36,9 +36,20 @@ func (mw mainView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case "e":
 			mw.fws[1].Move(fileview.Up)
+			if mw.fws[1].GetSelection().IsDir() {
+				mw.fws[2] = fileview.New(mw.fws[1].GetSelectedPath(), mw.w, mw.h)
+				return mw, mw.fws[2].Init
+			}
+			return mw, nil
 
 		case "n":
 			mw.fws[1].Move(fileview.Down)
+			if mw.fws[1].GetSelection().IsDir() {
+				mw.fws[2] = fileview.New(mw.fws[1].GetSelectedPath(), mw.w, mw.h)
+				mw.fws[2].Update(tea.WindowSizeMsg{Height: mw.h, Width: mw.w})
+				return mw, mw.fws[2].Init
+			}
+			return mw, nil
 		}
 	}
 

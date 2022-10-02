@@ -3,6 +3,7 @@ package fileview
 import (
 	"io/fs"
 	"os"
+	"path"
 	"strings"
 
 	"github.com/alx99/fly/internal/util"
@@ -42,9 +43,15 @@ type Window struct {
 	scrollPadding int
 }
 
-func New(path string) Window {
+func New(path string, width, height int) Window {
 	id++
-	return Window{id: id, path: path, scrollPadding: 2}
+	return Window{
+		id:            id,
+		path:          path,
+		scrollPadding: 2,
+		w:             width,
+		h:             height,
+	}
 }
 
 // Init will return the necessary tea.Msg for the fileWindow
@@ -117,4 +124,14 @@ func (fw *Window) Move(dir Direction) {
 		}
 	}
 
+}
+
+// GetSelection returns the current file the cursor is over
+func (fw Window) GetSelection() fs.DirEntry {
+	return fw.files[fw.pos]
+}
+
+// GetSelectedPath returns the path to the currently selected file
+func (fw Window) GetSelectedPath() string {
+	return path.Join(fw.path, fw.GetSelection().Name())
 }
