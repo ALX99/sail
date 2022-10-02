@@ -13,9 +13,9 @@ type mainView struct {
 
 func New() mainView {
 	fws := make([]fileview.Window, 3)
-	fws[0] = fileview.New("/", 0)
-	fws[1] = fileview.New("/var", 1)
-	fws[2] = fileview.New("/var/lib", 2)
+	fws[0] = fileview.New("/")
+	fws[1] = fileview.New("/var")
+	fws[2] = fileview.New("/var/lib")
 
 	return mainView{fws: fws}
 }

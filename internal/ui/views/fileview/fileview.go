@@ -17,6 +17,10 @@ const (
 	Down
 )
 
+var (
+	id ID = 0
+)
+
 type windowMsg struct {
 	msg interface{}
 	to  ID
@@ -38,7 +42,8 @@ type Window struct {
 	scrollPadding int
 }
 
-func New(path string, id ID) Window {
+func New(path string) Window {
+	id++
 	return Window{id: id, path: path, scrollPadding: 2}
 }
 
