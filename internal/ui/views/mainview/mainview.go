@@ -41,16 +41,14 @@ func (mw mainView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return mw, tea.Quit
 
 		case "e":
-			mw.fws[wd].Move(fileview.Up)
-			if mw.fws[wd].GetSelection().IsDir() {
+			if mw.fws[wd].Move(fileview.Up).GetSelection().IsDir() {
 				mw.fws[cd] = fileview.New(mw.fws[1].GetSelectedPath(), mw.w, mw.h)
 				return mw, mw.fws[2].Init
 			}
 			return mw, nil
 
 		case "n":
-			mw.fws[wd].Move(fileview.Down)
-			if mw.fws[wd].GetSelection().IsDir() {
+			if mw.fws[wd].Move(fileview.Down).GetSelection().IsDir() {
 				mw.fws[cd] = fileview.New(mw.fws[1].GetSelectedPath(), mw.w, mw.h)
 				mw.fws[cd].Update(tea.WindowSizeMsg{Height: mw.h, Width: mw.w})
 				return mw, mw.fws[2].Init

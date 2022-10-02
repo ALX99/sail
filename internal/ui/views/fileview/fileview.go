@@ -105,7 +105,7 @@ func (fw Window) View() string {
 }
 
 // Move moves the cursor up or down
-func (fw *Window) Move(dir Direction) {
+func (fw *Window) Move(dir Direction) *Window {
 	if dir == Up {
 		if fw.pos > 0 {
 			fw.pos -= 1
@@ -123,7 +123,7 @@ func (fw *Window) Move(dir Direction) {
 			}
 		}
 	}
-
+	return fw
 }
 
 // GetSelection returns the current file the cursor is over
