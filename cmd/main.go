@@ -5,10 +5,13 @@ import (
 	"os"
 
 	"github.com/alx99/fly/internal/ui/views/mainview"
+	"github.com/alx99/fly/internal/util"
 	tea "github.com/charmbracelet/bubbletea"
 )
 
 func main() {
+	util.SetupLogger()
+	util.Log.Info().Msg("Fly started")
 	mw := mainview.New()
 
 	if err := tea.NewProgram(mw).Start(); err != nil {
