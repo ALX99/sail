@@ -42,18 +42,35 @@ func (mw mainView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case "e":
 			if mw.fws[wd].Move(fileview.Up).GetSelection().IsDir() {
-				mw.fws[cd] = fileview.New(mw.fws[1].GetSelectedPath(), mw.w, mw.h)
+				mw.fws[cd] = fileview.New(mw.fws[wd].GetSelectedPath(), mw.w, mw.h)
 				return mw, mw.fws[2].Init
 			}
 			return mw, nil
 
 		case "n":
 			if mw.fws[wd].Move(fileview.Down).GetSelection().IsDir() {
-				mw.fws[cd] = fileview.New(mw.fws[1].GetSelectedPath(), mw.w, mw.h)
-				mw.fws[cd].Update(tea.WindowSizeMsg{Height: mw.h, Width: mw.w})
+				mw.fws[cd] = fileview.New(mw.fws[wd].GetSelectedPath(), mw.w, mw.h)
 				return mw, mw.fws[2].Init
 			}
 			return mw, nil
+
+		case "k":
+			if mw.fws[pd].GetPath() == "/" {
+				break
+			}
+			mw.fws[cd] = mw.fws[wd]
+			mw.fws[wd] = mw.fws[pd]
+			mw.fws[pd] = fileview.New(util.GetParentPath(mw.fws[pd].GetPath()), mw.w, mw.h)
+			return mw, mw.fws[pd].Init
+
+		case "i":
+			if !mw.fws[wd].GetSelection().IsDir() {
+				break
+			}
+			mw.fws[pd] = mw.fws[wd]
+			mw.fws[wd] = mw.fws[cd]
+			mw.fws[cd] = fileview.New(mw.fws[wd].GetSelectedPath(), mw.w, mw.h)
+			return mw, mw.fws[cd].Init
 		}
 	}
 
@@ -70,4 +87,11 @@ func (mw mainView) View() string {
 		res = append(res, fw.View())
 	}
 	return lipgloss.JoinHorizontal(lipgloss.Left, res...)
+}
+func (mw mainView) logState() {
+	util.Log.Debug().
+		Str("pd", mw.fws[pd].GetPath()).
+		Str("wd", mw.fws[wd].GetPath()).
+		Str("cd", mw.fws[cd].GetPath()).
+		Send()
 }

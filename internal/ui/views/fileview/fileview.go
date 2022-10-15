@@ -146,6 +146,11 @@ func (fw Window) GetSelection() fs.DirEntry {
 	return fw.files[fw.pos]
 }
 
+// GetSelectedPath returns the path to the viewed directory
+func (fw Window) GetPath() string {
+	return fw.path
+}
+
 // GetSelectedPath returns the path to the currently selected file
 func (fw Window) GetSelectedPath() string {
 	return path.Join(fw.path, fw.GetSelection().Name())
