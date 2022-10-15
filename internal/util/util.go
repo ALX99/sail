@@ -18,7 +18,7 @@ func Min(a, b int) int {
 
 func GetParentPath(path string) string {
 	p := strings.Split(path, "/")
-	if len(p) == 1 {
+	if len(p) <= 2 {
 		return "/"
 	}
 	return strings.Join(p[:len(p)-1], "/")
