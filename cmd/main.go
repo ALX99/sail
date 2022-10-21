@@ -11,6 +11,7 @@ import (
 
 func main() {
 	util.SetupLogger()
+	util.SetupStyles()
 	util.Log.Info().Msg("Fly started")
 	mw := mainview.New()
 

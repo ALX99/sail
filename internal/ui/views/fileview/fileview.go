@@ -107,7 +107,7 @@ func (fw Window) View() string {
 			nameBuilder.WriteString("> ")
 		}
 
-		nameBuilder.WriteString(fw.files[i].Name())
+		nameBuilder.WriteString(util.GetStyle(fw.files[i]).Render(fw.files[i].Name()))
 
 		if fw.files[i].IsDir() {
 			nameBuilder.WriteString("/")
