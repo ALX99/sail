@@ -171,3 +171,13 @@ func (fw Window) GetPath() string {
 func (fw Window) GetSelectedPath() string {
 	return path.Join(fw.path, fw.GetSelection().Name())
 }
+
+func (fw Window) logState() {
+	util.Log.Debug().
+		Str("path", fw.path).
+		Int("h", fw.h).
+		Int("w", fw.w).
+		Int("visibleFileLen", fw.visibleFileLen).
+		Int("index", fw.pos).
+		Send()
+}
