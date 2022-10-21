@@ -102,14 +102,22 @@ func (fw Window) View() string {
 	drawn := 0
 
 	for i := fw.fileStart; i < fw.visibleFileLen && drawn < fw.h; i++ {
+		charsWritten := 0
 		drawn++
 		if i == fw.pos {
 			nameBuilder.WriteString("> ")
+			charsWritten += 2
 		}
 
-		nameBuilder.WriteString(util.GetStyle(fw.files[i]).Render(fw.files[i].Name()))
+		name := fw.files[i].Name()
+		if len(name)+charsWritten > fw.w {
+			name = name[:fw.w-charsWritten-1] + "~"
+		}
+		charsWritten += len(name)
 
-		if fw.files[i].IsDir() {
+		nameBuilder.WriteString(util.GetStyle(fw.files[i]).Render(name))
+
+		if charsWritten+1 <= fw.w && fw.files[i].IsDir() {
 			nameBuilder.WriteString("/")
 		}
 
