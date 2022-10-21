@@ -1,7 +1,10 @@
 package mainview
 
 import (
+	"os"
+
 	"github.com/alx99/fly/internal/ui/views/fileview"
+	"github.com/alx99/fly/internal/util"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
@@ -15,25 +18,41 @@ const (
 type mainView struct {
 	fws  []fileview.Window
 	h, w int
+
+  fwWidth int
 }
 
 func New() mainView {
 	fws := make([]fileview.Window, 3)
-	fws[0] = fileview.New("/", 0, 0)
-	fws[1] = fileview.New("/var", 0, 0)
-	fws[2] = fileview.New("/var/lib", 0, 0)
+	home, ok := os.LookupEnv("HOME")
+	if !ok {
+		panic("$HOME not set")
+	}
+
+	fws[pd] = fileview.New(util.GetParentPath(home), 0, 0)
+	fws[wd] = fileview.New(home, 0, 0)
+	fws[cd] = fileview.New("todo", 0, 0)
 
 	return mainView{fws: fws}
 }
 
 func (mw mainView) Init() tea.Cmd {
-	return tea.Batch(mw.fws[0].Init, mw.fws[1].Init, mw.fws[2].Init)
+	return tea.Batch(mw.fws[0].Init, mw.fws[1].Init, mw.fws[2].Init, tea.EnterAltScreen)
 }
 
 func (mw mainView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		mw.h, mw.w = msg.Height, msg.Width
+		mw.fwWidth = msg.Width / 3
+		mw.fws[pd].SetWidth(mw.fwWidth)
+		mw.fws[wd].SetWidth(mw.fwWidth)
+		mw.fws[cd].SetWidth(msg.Width - mw.fwWidth*2)
+
+		util.Log.Debug().
+			Int("height", msg.Height).
+			Int("Width", msg.Width).
+			Msg("Terminal size updated")
 
 	case tea.KeyMsg:
 		switch kp := msg.String(); kp {
@@ -42,15 +61,15 @@ func (mw mainView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case "e":
 			if mw.fws[wd].Move(fileview.Up).GetSelection().IsDir() {
-				mw.fws[cd] = fileview.New(mw.fws[wd].GetSelectedPath(), mw.w, mw.h)
-				return mw, mw.fws[2].Init
+				mw.fws[cd] = fileview.New(mw.fws[wd].GetSelectedPath(), mw.fwWidth, mw.h)
+				return mw, mw.fws[cd].Init
 			}
 			return mw, nil
 
 		case "n":
 			if mw.fws[wd].Move(fileview.Down).GetSelection().IsDir() {
-				mw.fws[cd] = fileview.New(mw.fws[wd].GetSelectedPath(), mw.w, mw.h)
-				return mw, mw.fws[2].Init
+				mw.fws[cd] = fileview.New(mw.fws[wd].GetSelectedPath(), mw.fwWidth, mw.h)
+				return mw, mw.fws[cd].Init
 			}
 			return mw, nil
 
@@ -60,7 +79,7 @@ func (mw mainView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			mw.fws[cd] = mw.fws[wd]
 			mw.fws[wd] = mw.fws[pd]
-			mw.fws[pd] = fileview.New(util.GetParentPath(mw.fws[pd].GetPath()), mw.w, mw.h)
+			mw.fws[pd] = fileview.New(util.GetParentPath(mw.fws[pd].GetPath()), mw.w - mw.fwWidth*2, mw.h)
 			return mw, mw.fws[pd].Init
 
 		case "i":
@@ -69,7 +88,7 @@ func (mw mainView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			mw.fws[pd] = mw.fws[wd]
 			mw.fws[wd] = mw.fws[cd]
-			mw.fws[cd] = fileview.New(mw.fws[wd].GetSelectedPath(), mw.w, mw.h)
+			mw.fws[cd] = fileview.New(mw.fws[wd].GetSelectedPath(), mw.w/3, mw.h)
 			return mw, mw.fws[cd].Init
 		}
 	}
@@ -88,6 +107,7 @@ func (mw mainView) View() string {
 	}
 	return lipgloss.JoinHorizontal(lipgloss.Left, res...)
 }
+
 func (mw mainView) logState() {
 	util.Log.Debug().
 		Str("pd", mw.fws[pd].GetPath()).

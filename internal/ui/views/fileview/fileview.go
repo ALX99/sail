@@ -8,6 +8,7 @@ import (
 
 	"github.com/alx99/fly/internal/util"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 )
 
 type Direction uint8
@@ -85,7 +86,7 @@ func (fw Window) Update(msg tea.Msg) (Window, tea.Cmd) {
 		}
 
 	case tea.WindowSizeMsg:
-		fw.h, fw.w = msg.Height, msg.Width
+		fw.h = msg.Height
 	}
 
 	return fw, nil
@@ -116,7 +117,14 @@ func (fw Window) View() string {
 		nameBuilder.Reset()
 	}
 
-	return strings.Join(names, "\n")
+	style := lipgloss.NewStyle().Width(fw.w)
+	return style.Render(strings.Join(names, "\n"))
+}
+
+// SetWidth sets the max allowed width of the window
+func (fw *Window) SetWidth(w int) *Window {
+	fw.w = w
+	return fw
 }
 
 // Move moves the cursor up or down
