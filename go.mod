@@ -6,6 +6,7 @@ require (
 	github.com/charmbracelet/bubbletea v0.22.1
 	github.com/charmbracelet/lipgloss v0.6.0
 	github.com/rs/zerolog v1.28.0
+	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (

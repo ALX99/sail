@@ -6,6 +6,7 @@ import (
 	"path"
 	"strings"
 
+	"github.com/alx99/fly/internal/config"
 	"github.com/alx99/fly/internal/util"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -45,12 +46,13 @@ type Window struct {
 	scrollPadding int
 }
 
-func New(path string, width, height int) Window {
+func New(path string, width, height int, cfg config.Config) Window {
 	id++
+
 	return Window{
 		id:            id,
 		path:          path,
-		scrollPadding: 2,
+		scrollPadding: cfg.Settings.ScrollPadding,
 		w:             width,
 		h:             height,
 	}
@@ -61,6 +63,7 @@ func New(path string, width, height int) Window {
 func (fw Window) Init() tea.Msg {
 	files, err := os.ReadDir(fw.path)
 	if err != nil {
+		util.Log.Err(err).Msg("Failed to read directory")
 		return windowMsg{to: fw.id, msg: err}
 	}
 	return windowMsg{to: fw.id, msg: files}

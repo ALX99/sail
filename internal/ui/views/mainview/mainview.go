@@ -3,6 +3,7 @@ package mainview
 import (
 	"os"
 
+	"github.com/alx99/fly/internal/config"
 	"github.com/alx99/fly/internal/ui/views/fileview"
 	"github.com/alx99/fly/internal/util"
 	tea "github.com/charmbracelet/bubbletea"
@@ -19,21 +20,23 @@ type mainView struct {
 	fws  []fileview.Window
 	h, w int
 
-  fwWidth int
+	fwWidth int
+
+	cfg config.Config
 }
 
-func New() mainView {
+func New(cfg config.Config) mainView {
 	fws := make([]fileview.Window, 3)
 	home, ok := os.LookupEnv("HOME")
 	if !ok {
 		panic("$HOME not set")
 	}
 
-	fws[pd] = fileview.New(util.GetParentPath(home), 0, 0)
-	fws[wd] = fileview.New(home, 0, 0)
-	fws[cd] = fileview.New("todo", 0, 0)
+	fws[pd] = fileview.New(util.GetParentPath(home), 0, 0, cfg)
+	fws[wd] = fileview.New(home, 0, 0, cfg)
+	fws[cd] = fileview.New("todo", 0, 0, cfg)
 
-	return mainView{fws: fws}
+	return mainView{fws: fws, cfg: cfg}
 }
 
 func (mw mainView) Init() tea.Cmd {
@@ -61,14 +64,14 @@ func (mw mainView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case "e":
 			if mw.fws[wd].Move(fileview.Up).GetSelection().IsDir() {
-				mw.fws[cd] = fileview.New(mw.fws[wd].GetSelectedPath(), mw.fwWidth, mw.h)
+				mw.fws[cd] = fileview.New(mw.fws[wd].GetSelectedPath(), mw.fwWidth, mw.h, mw.cfg)
 				return mw, mw.fws[cd].Init
 			}
 			return mw, nil
 
 		case "n":
 			if mw.fws[wd].Move(fileview.Down).GetSelection().IsDir() {
-				mw.fws[cd] = fileview.New(mw.fws[wd].GetSelectedPath(), mw.fwWidth, mw.h)
+				mw.fws[cd] = fileview.New(mw.fws[wd].GetSelectedPath(), mw.fwWidth, mw.h, mw.cfg)
 				return mw, mw.fws[cd].Init
 			}
 			return mw, nil
@@ -79,7 +82,7 @@ func (mw mainView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			mw.fws[cd] = mw.fws[wd]
 			mw.fws[wd] = mw.fws[pd]
-			mw.fws[pd] = fileview.New(util.GetParentPath(mw.fws[pd].GetPath()), mw.w - mw.fwWidth*2, mw.h)
+			mw.fws[pd] = fileview.New(util.GetParentPath(mw.fws[pd].GetPath()), mw.w-mw.fwWidth*2, mw.h, mw.cfg)
 			return mw, mw.fws[pd].Init
 
 		case "i":
@@ -88,7 +91,7 @@ func (mw mainView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			mw.fws[pd] = mw.fws[wd]
 			mw.fws[wd] = mw.fws[cd]
-			mw.fws[cd] = fileview.New(mw.fws[wd].GetSelectedPath(), mw.w/3, mw.h)
+			mw.fws[cd] = fileview.New(mw.fws[wd].GetSelectedPath(), mw.w/3, mw.h, mw.cfg)
 			return mw, mw.fws[cd].Init
 		}
 	}
