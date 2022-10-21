@@ -12,7 +12,7 @@ import (
 )
 
 type Direction uint8
-type ID uint8
+type ID uint32
 
 const (
 	Up Direction = iota
