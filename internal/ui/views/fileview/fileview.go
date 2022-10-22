@@ -1,12 +1,13 @@
 package fileview
 
 import (
-	"io/fs"
-	"os"
 	"path"
 	"strings"
 
+	fss "io/fs"
+
 	"github.com/alx99/fly/internal/config"
+	"github.com/alx99/fly/internal/fs"
 	"github.com/alx99/fly/internal/util"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -31,16 +32,14 @@ type windowMsg struct {
 
 type Window struct {
 	path     string
-	files    []fs.DirEntry
+	dir      fs.Directory
 	moveDown bool
 	err      error
 
-	id             ID
-	h, w           int
-	pos            int
-	prevFileStart  int
-	fileStart      int
-	visibleFileLen int
+	id            ID
+	h, w          int
+	prevFileStart int
+	fileStart     int
 
 	// Configurable settings
 	scrollPadding int
@@ -61,12 +60,12 @@ func New(path string, width, height int, cfg config.Config) Window {
 // Init will return the necessary tea.Msg for the fileWindow
 // to become initialized and ready
 func (fw Window) Init() tea.Msg {
-	files, err := os.ReadDir(fw.path)
+	dir, err := fs.NewDirectory(fw.path)
 	if err != nil {
 		util.Log.Err(err).Msg("Failed to read directory")
 		return windowMsg{to: fw.id, msg: err}
 	}
-	return windowMsg{to: fw.id, msg: files}
+	return windowMsg{to: fw.id, msg: dir}
 }
 
 func (fw Window) Update(msg tea.Msg) (Window, tea.Cmd) {
@@ -76,16 +75,18 @@ func (fw Window) Update(msg tea.Msg) (Window, tea.Cmd) {
 			break
 		}
 		switch msg := msg.msg.(type) {
-		case []fs.DirEntry:
-			fw.files = msg
-			fw.visibleFileLen = len(fw.files)
+		case fs.Directory:
+			fw.dir = msg
 			fw.err = nil
 
 		case error:
 			fw.err = msg
 
-		default:
-			panic("developer error")
+		case tea.KeyMsg:
+			switch kp := msg.String(); kp {
+			case ".":
+				return fw, nil
+			}
 		}
 
 	case tea.WindowSizeMsg:
@@ -101,26 +102,27 @@ func (fw Window) View() string {
 	}
 
 	var nameBuilder strings.Builder
-	names := make([]string, 0, fw.visibleFileLen)
+	names := make([]string, 0, fw.dir.GetVisibleFileCount())
 	drawn := 0
 
-	for i := fw.fileStart; i < fw.visibleFileLen && drawn < fw.h; i++ {
+	for i := fw.fileStart; i < fw.dir.GetVisibleFileCount() && drawn < fw.h; i++ {
 		charsWritten := 0
 		drawn++
-		if i == fw.pos {
+		if i == fw.dir.GetCursorIndex() {
 			nameBuilder.WriteString("> ")
 			charsWritten += 2
 		}
 
-		name := fw.files[i].Name()
+		selectedFile := fw.dir.GetFileAtIndex(i).GetDirEntry()
+		name := selectedFile.Name()
 		if len(name)+charsWritten > fw.w {
 			name = name[:fw.w-charsWritten-1] + "~"
 		}
 		charsWritten += len(name)
 
-		nameBuilder.WriteString(util.GetStyle(fw.files[i]).Render(name))
+		nameBuilder.WriteString(util.GetStyle(selectedFile).Render(name))
 
-		if charsWritten+1 <= fw.w && fw.files[i].IsDir() {
+		if charsWritten+1 <= fw.w && selectedFile.IsDir() {
 			nameBuilder.WriteString("/")
 		}
 
@@ -141,19 +143,19 @@ func (fw *Window) SetWidth(w int) *Window {
 // Move moves the cursor up or down
 func (fw *Window) Move(dir Direction) *Window {
 	if dir == Up {
-		if fw.pos > 0 {
-			fw.pos -= 1
+		if fw.dir.GetCursorIndex() > 0 {
+			fw.dir.MovCursorUp()
 
-			if fw.fileStart > (fw.pos - fw.scrollPadding) {
+			if fw.fileStart > (fw.dir.GetCursorIndex() - fw.scrollPadding) {
 				fw.fileStart = util.Max(0, fw.fileStart-1)
 			}
 		}
 	} else {
-		if fw.pos < fw.visibleFileLen-1 {
-			fw.pos += 1
+		if fw.dir.GetCursorIndex() < fw.dir.GetVisibleFileCount()-1 {
+			fw.dir.MovCursorDown()
 
-			if fw.pos-fw.fileStart+1 > (fw.h - fw.scrollPadding) {
-				fw.fileStart = util.Min(fw.visibleFileLen-fw.h, fw.fileStart+1)
+			if fw.dir.GetCursorIndex()-fw.fileStart+1 > (fw.h - fw.scrollPadding) {
+				fw.fileStart = util.Min(fw.dir.GetVisibleFileCount()-fw.h, fw.fileStart+1)
 			}
 		}
 	}
@@ -161,8 +163,8 @@ func (fw *Window) Move(dir Direction) *Window {
 }
 
 // GetSelection returns the current file the cursor is over
-func (fw Window) GetSelection() fs.DirEntry {
-	return fw.files[fw.pos]
+func (fw Window) GetSelection() fss.DirEntry {
+	return fw.dir.GetFileAtCursor().GetDirEntry()
 }
 
 // GetSelectedPath returns the path to the viewed directory
@@ -180,7 +182,5 @@ func (fw Window) logState() {
 		Str("path", fw.path).
 		Int("h", fw.h).
 		Int("w", fw.w).
-		Int("visibleFileLen", fw.visibleFileLen).
-		Int("index", fw.pos).
 		Send()
 }
