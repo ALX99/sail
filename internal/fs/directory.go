@@ -1,6 +1,9 @@
 package fs
 
-import "os"
+import (
+	"os"
+	"sort"
+)
 
 type Directory struct {
 	files     []File
@@ -21,6 +24,10 @@ func NewDirectory(path string) (Directory, error) {
 	for _, dEntry := range files {
 		f.files = append(f.files, File{dEntry: dEntry})
 	}
+
+	sort.Slice(f.files, func(i, j int) bool {
+		return f.files[i].GetDirEntry().IsDir()
+	})
 
 	return f, nil
 }
