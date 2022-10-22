@@ -74,6 +74,7 @@ func (fw Window) Update(msg tea.Msg) (Window, tea.Cmd) {
 		if msg.to != fw.id {
 			break
 		}
+
 		switch msg := msg.msg.(type) {
 		case fs.Directory:
 			fw.dir = msg
@@ -82,15 +83,17 @@ func (fw Window) Update(msg tea.Msg) (Window, tea.Cmd) {
 		case error:
 			fw.err = msg
 
-		case tea.KeyMsg:
-			switch kp := msg.String(); kp {
-			case ".":
-				return fw, nil
-			}
 		}
 
 	case tea.WindowSizeMsg:
 		fw.h = msg.Height
+
+	case tea.KeyMsg:
+		switch kp := msg.String(); kp {
+		case ".":
+			fw.dir.ToggleShowHiddenFiles()
+			return fw, nil
+		}
 	}
 
 	return fw, nil
@@ -144,7 +147,7 @@ func (fw *Window) SetWidth(w int) *Window {
 func (fw *Window) Move(dir Direction) *Window {
 	if dir == Up {
 		if fw.dir.GetCursorIndex() > 0 {
-			fw.dir.MovCursorUp()
+			fw.dir.MoveCursorUp()
 
 			if fw.fileStart > (fw.dir.GetCursorIndex() - fw.scrollPadding) {
 				fw.fileStart = util.Max(0, fw.fileStart-1)
@@ -152,7 +155,7 @@ func (fw *Window) Move(dir Direction) *Window {
 		}
 	} else {
 		if fw.dir.GetCursorIndex() < fw.dir.GetVisibleFileCount()-1 {
-			fw.dir.MovCursorDown()
+			fw.dir.MoveCursorDown()
 
 			if fw.dir.GetCursorIndex()-fw.fileStart+1 > (fw.h - fw.scrollPadding) {
 				fw.fileStart = util.Min(fw.dir.GetVisibleFileCount()-fw.h, fw.fileStart+1)

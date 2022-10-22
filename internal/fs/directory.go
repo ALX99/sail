@@ -6,9 +6,10 @@ import (
 )
 
 type Directory struct {
-	files     []File
-	fileCount int
-	cursor    int
+	files           []File
+	fileCount       int
+	cursor          int
+	showHiddenFiles bool
 }
 
 func NewDirectory(path string) (Directory, error) {
@@ -17,7 +18,9 @@ func NewDirectory(path string) (Directory, error) {
 		return Directory{}, err
 	}
 
-	f := Directory{}
+	f := Directory{
+		showHiddenFiles: true,
+	}
 	f.fileCount = len(files)
 
 	f.files = make([]File, 0, f.fileCount)
@@ -32,13 +35,27 @@ func NewDirectory(path string) (Directory, error) {
 	return f, nil
 }
 
-// MovCursorUp moves the cursor up in the directory
-func (d *Directory) MovCursorUp() {
+// ToggleShowHiddenFiles toggles showing hidden files
+func (d *Directory) ToggleShowHiddenFiles() {
+	d.showHiddenFiles = !d.showHiddenFiles
+
+	for _, f := range d.files {
+		if d.showHiddenFiles && f.hidden && !f.visible {
+			f.visible = true
+		}
+		if !d.showHiddenFiles && f.hidden && f.visible {
+			f.visible = false
+		}
+	}
+}
+
+// MoveCursorUp moves the cursor up in the directory
+func (d *Directory) MoveCursorUp() {
 	d.cursor--
 }
 
-// MovCursorDown moves the cursor down in the directory
-func (d *Directory) MovCursorDown() {
+// MoveCursorDown moves the cursor down in the directory
+func (d *Directory) MoveCursorDown() {
 	d.cursor++
 }
 
