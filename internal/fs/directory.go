@@ -22,7 +22,7 @@ func NewDirectory(path string) (Directory, error) {
 
 	f.files = make([]File, 0, f.fileCount)
 	for _, dEntry := range files {
-		f.files = append(f.files, File{dEntry: dEntry})
+		f.files = append(f.files, newFile(dEntry))
 	}
 
 	sort.Slice(f.files, func(i, j int) bool {
