@@ -5,6 +5,7 @@ import (
 
 	"github.com/alx99/fly/internal/config"
 	"github.com/alx99/fly/internal/ui/views/fileview"
+	"github.com/alx99/fly/internal/ui/views/inputview"
 	"github.com/alx99/fly/internal/util"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -17,10 +18,12 @@ const (
 )
 
 type mainView struct {
-	fws  []fileview.Window
-	h, w int
+	fws []fileview.Window
+	iv  inputview.View
 
-	fwWidth int
+	h, w     int
+	fwWidth  int
+	fwHeight int
 
 	cfg config.Config
 }
@@ -47,10 +50,14 @@ func (mw mainView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		mw.h, mw.w = msg.Height, msg.Width
-		mw.fwWidth = msg.Width / 3
-		mw.fws[pd].SetWidth(mw.fwWidth)
-		mw.fws[wd].SetWidth(mw.fwWidth)
-		mw.fws[cd].SetWidth(msg.Width - mw.fwWidth*2)
+
+		mw.fwWidth = msg.Width / 3 // width
+		mw.fwHeight = msg.Height
+		if mw.iv.Focused() {
+			mw.fwHeight -= 1
+		}
+
+		mw.updateFWSizes()
 
 		util.Log.Debug().
 			Int("height", msg.Height).
@@ -58,20 +65,31 @@ func (mw mainView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			Msg("Terminal size updated")
 
 	case tea.KeyMsg:
+		if mw.iv.Focused() {
+			mw.iv, _ = mw.iv.Update(msg)
+
+			if !mw.iv.Focused() {
+				mw.fwHeight++ // inpuvtview is no longer visible
+				mw.updateFWSizes()
+			}
+
+			return mw, nil
+		}
+
 		switch kp := msg.String(); kp {
 		case "ctrl+c", "q":
 			return mw, tea.Quit
 
 		case "e":
 			if mw.fws[wd].Move(fileview.Up).GetSelection().IsDir() {
-				mw.fws[cd] = fileview.New(mw.fws[wd].GetSelectedPath(), mw.fwWidth, mw.h, mw.cfg)
+				mw.fws[cd] = fileview.New(mw.fws[wd].GetSelectedPath(), mw.fwWidth, mw.fwHeight, mw.cfg)
 				return mw, mw.fws[cd].Init
 			}
 			return mw, nil
 
 		case "n":
 			if mw.fws[wd].Move(fileview.Down).GetSelection().IsDir() {
-				mw.fws[cd] = fileview.New(mw.fws[wd].GetSelectedPath(), mw.fwWidth, mw.h, mw.cfg)
+				mw.fws[cd] = fileview.New(mw.fws[wd].GetSelectedPath(), mw.fwWidth, mw.fwHeight, mw.cfg)
 				return mw, mw.fws[cd].Init
 			}
 			return mw, nil
@@ -96,8 +114,14 @@ func (mw mainView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	}
 
-	for i := range mw.fws {
-		mw.fws[i], _ = mw.fws[i].Update(msg)
+	mw.iv, _ = mw.iv.Update(msg)
+	if !mw.iv.Focused() {
+		for i := range mw.fws {
+			mw.fws[i], _ = mw.fws[i].Update(msg)
+		}
+	} else {
+		mw.fwHeight-- // inputview is now focused
+		mw.updateFWSizes()
 	}
 
 	return mw, nil
@@ -108,7 +132,16 @@ func (mw mainView) View() string {
 	for _, fw := range mw.fws {
 		res = append(res, fw.View())
 	}
+	if mw.iv.Focused() {
+		return lipgloss.JoinVertical(0, lipgloss.JoinHorizontal(lipgloss.Left, res...), mw.iv.View())
+	}
 	return lipgloss.JoinHorizontal(lipgloss.Left, res...)
+}
+
+func (mw *mainView) updateFWSizes() {
+	mw.fws[pd].SetSize(mw.fwWidth, mw.fwHeight)
+	mw.fws[wd].SetSize(mw.fwWidth, mw.fwHeight)
+	mw.fws[cd].SetSize(mw.w-mw.fwWidth*2, mw.fwHeight)
 }
 
 func (mw mainView) logState() {

@@ -85,9 +85,6 @@ func (fw Window) Update(msg tea.Msg) (Window, tea.Cmd) {
 
 		}
 
-	case tea.WindowSizeMsg:
-		fw.h = msg.Height
-
 	case tea.KeyMsg:
 		switch kp := msg.String(); kp {
 		case ".":
@@ -137,9 +134,10 @@ func (fw Window) View() string {
 	return style.Render(strings.Join(names, "\n"))
 }
 
-// SetWidth sets the max allowed width of the window
-func (fw *Window) SetWidth(w int) *Window {
+// SetSize sets the max allowed size of the window
+func (fw *Window) SetSize(w, h int) *Window {
 	fw.w = w
+	fw.h = h
 	return fw
 }
 
