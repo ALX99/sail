@@ -17,8 +17,8 @@ const (
 	cd        // child directory
 )
 
-type mainView struct {
-	fws []fileview.Window
+type view struct {
+	fws []fileview.View
 	iv  inputview.View
 
 	h, w     int
@@ -28,8 +28,8 @@ type mainView struct {
 	cfg config.Config
 }
 
-func New(cfg config.Config) mainView {
-	fws := make([]fileview.Window, 3)
+func New(cfg config.Config) view {
+	fws := make([]fileview.View, 3)
 	home, ok := os.LookupEnv("HOME")
 	if !ok {
 		panic("$HOME not set")
@@ -39,25 +39,25 @@ func New(cfg config.Config) mainView {
 	fws[wd] = fileview.New(home, 0, 0, cfg)
 	fws[cd] = fileview.New("todo", 0, 0, cfg)
 
-	return mainView{fws: fws, cfg: cfg}
+	return view{fws: fws, cfg: cfg}
 }
 
-func (mw mainView) Init() tea.Cmd {
-	return tea.Batch(mw.fws[0].Init, mw.fws[1].Init, mw.fws[2].Init, tea.EnterAltScreen)
+func (v view) Init() tea.Cmd {
+	return tea.Batch(v.fws[0].Init, v.fws[1].Init, v.fws[2].Init, tea.EnterAltScreen)
 }
 
-func (mw mainView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (v view) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
-		mw.h, mw.w = msg.Height, msg.Width
+		v.h, v.w = msg.Height, msg.Width
 
-		mw.fwWidth = msg.Width / 3 // width
-		mw.fwHeight = msg.Height
-		if mw.iv.Focused() {
-			mw.fwHeight -= 1
+		v.fwWidth = msg.Width / 3 // width
+		v.fwHeight = msg.Height
+		if v.iv.Focused() {
+			v.fwHeight -= 1
 		}
 
-		mw.updateFWSizes()
+		v.updateFWSizes()
 
 		util.Log.Debug().
 			Int("height", msg.Height).
@@ -65,89 +65,89 @@ func (mw mainView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			Msg("Terminal size updated")
 
 	case tea.KeyMsg:
-		if mw.iv.Focused() {
-			mw.iv, _ = mw.iv.Update(msg)
+		if v.iv.Focused() {
+			v.iv, _ = v.iv.Update(msg)
 
-			if !mw.iv.Focused() {
-				mw.fwHeight++ // inpuvtview is no longer visible
-				mw.updateFWSizes()
+			if !v.iv.Focused() {
+				v.fwHeight++ // inpuvtview is no longer visible
+				v.updateFWSizes()
 			}
 
-			return mw, nil
+			return v, nil
 		}
 
 		switch kp := msg.String(); kp {
 		case "ctrl+c", "q":
-			return mw, tea.Quit
+			return v, tea.Quit
 
 		case "e":
-			if mw.fws[wd].Move(fileview.Up).GetSelection().IsDir() {
-				mw.fws[cd] = fileview.New(mw.fws[wd].GetSelectedPath(), mw.fwWidth, mw.fwHeight, mw.cfg)
-				return mw, mw.fws[cd].Init
+			if v.fws[wd].Move(fileview.Up).GetSelection().IsDir() {
+				v.fws[cd] = fileview.New(v.fws[wd].GetSelectedPath(), v.fwWidth, v.fwHeight, v.cfg)
+				return v, v.fws[cd].Init
 			}
-			return mw, nil
+			return v, nil
 
 		case "n":
-			if mw.fws[wd].Move(fileview.Down).GetSelection().IsDir() {
-				mw.fws[cd] = fileview.New(mw.fws[wd].GetSelectedPath(), mw.fwWidth, mw.fwHeight, mw.cfg)
-				return mw, mw.fws[cd].Init
+			if v.fws[wd].Move(fileview.Down).GetSelection().IsDir() {
+				v.fws[cd] = fileview.New(v.fws[wd].GetSelectedPath(), v.fwWidth, v.fwHeight, v.cfg)
+				return v, v.fws[cd].Init
 			}
-			return mw, nil
+			return v, nil
 
 		case "k":
-			if mw.fws[pd].GetPath() == "/" {
+			if v.fws[pd].GetPath() == "/" {
 				break
 			}
-			mw.fws[cd] = mw.fws[wd]
-			mw.fws[wd] = mw.fws[pd]
-			mw.fws[pd] = fileview.New(util.GetParentPath(mw.fws[pd].GetPath()), mw.w-mw.fwWidth*2, mw.h, mw.cfg)
-			return mw, mw.fws[pd].Init
+			v.fws[cd] = v.fws[wd]
+			v.fws[wd] = v.fws[pd]
+			v.fws[pd] = fileview.New(util.GetParentPath(v.fws[pd].GetPath()), v.w-v.fwWidth*2, v.h, v.cfg)
+			return v, v.fws[pd].Init
 
 		case "i":
-			if !mw.fws[wd].GetSelection().IsDir() {
+			if !v.fws[wd].GetSelection().IsDir() {
 				break
 			}
-			mw.fws[pd] = mw.fws[wd]
-			mw.fws[wd] = mw.fws[cd]
-			mw.fws[cd] = fileview.New(mw.fws[wd].GetSelectedPath(), mw.w/3, mw.h, mw.cfg)
-			return mw, mw.fws[cd].Init
+			v.fws[pd] = v.fws[wd]
+			v.fws[wd] = v.fws[cd]
+			v.fws[cd] = fileview.New(v.fws[wd].GetSelectedPath(), v.w/3, v.h, v.cfg)
+			return v, v.fws[cd].Init
 		}
 	}
 
-	mw.iv, _ = mw.iv.Update(msg)
-	if !mw.iv.Focused() {
-		for i := range mw.fws {
-			mw.fws[i], _ = mw.fws[i].Update(msg)
+	v.iv, _ = v.iv.Update(msg)
+	if !v.iv.Focused() {
+		for i := range v.fws {
+			v.fws[i], _ = v.fws[i].Update(msg)
 		}
 	} else {
-		mw.fwHeight-- // inputview is now focused
-		mw.updateFWSizes()
+		v.fwHeight-- // inputview is now focused
+		v.updateFWSizes()
 	}
 
-	return mw, nil
+	return v, nil
 }
 
-func (mw mainView) View() string {
-	res := make([]string, len(mw.fws))
-	for _, fw := range mw.fws {
+func (v view) View() string {
+	res := make([]string, len(v.fws))
+	for _, fw := range v.fws {
 		res = append(res, fw.View())
 	}
-	if mw.iv.Focused() {
-		return lipgloss.JoinVertical(0, lipgloss.JoinHorizontal(lipgloss.Left, res...), mw.iv.View())
+	if v.iv.Focused() {
+		return lipgloss.JoinVertical(0, lipgloss.JoinHorizontal(lipgloss.Left, res...), v.iv.View())
 	}
 	return lipgloss.JoinHorizontal(lipgloss.Left, res...)
 }
 
-func (mw *mainView) updateFWSizes() {
-	mw.fws[pd].SetSize(mw.fwWidth, mw.fwHeight)
-	mw.fws[wd].SetSize(mw.fwWidth, mw.fwHeight)
-	mw.fws[cd].SetSize(mw.w-mw.fwWidth*2, mw.fwHeight)
+func (v *view) updateFWSizes() {
+	v.fws[pd].SetSize(v.fwWidth, v.fwHeight)
+	v.fws[wd].SetSize(v.fwWidth, v.fwHeight)
+	v.fws[cd].SetSize(v.w-v.fwWidth*2, v.fwHeight)
 }
 
-func (mw mainView) logState() {
+func (v view) logState() {
 	util.Log.Debug().
-		Str("pd", mw.fws[pd].GetPath()).
-		Str("wd", mw.fws[wd].GetPath()).
-		Str("cd", mw.fws[cd].GetPath()).
+		Str("pd", v.fws[pd].GetPath()).
+		Str("wd", v.fws[wd].GetPath()).
+		Str("cd", v.fws[cd].GetPath()).
 		Send()
 }

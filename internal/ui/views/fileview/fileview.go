@@ -30,7 +30,7 @@ type windowMsg struct {
 	to  ID
 }
 
-type Window struct {
+type View struct {
 	path     string
 	dir      fs.Directory
 	moveDown bool
@@ -45,10 +45,10 @@ type Window struct {
 	scrollPadding int
 }
 
-func New(path string, width, height int, cfg config.Config) Window {
+func New(path string, width, height int, cfg config.Config) View {
 	id++
 
-	return Window{
+	return View{
 		id:            id,
 		path:          path,
 		scrollPadding: cfg.Settings.ScrollPadding,
@@ -59,70 +59,70 @@ func New(path string, width, height int, cfg config.Config) Window {
 
 // Init will return the necessary tea.Msg for the fileWindow
 // to become initialized and ready
-func (fw Window) Init() tea.Msg {
-	dir, err := fs.NewDirectory(fw.path)
+func (v View) Init() tea.Msg {
+	dir, err := fs.NewDirectory(v.path)
 	if err != nil {
 		util.Log.Err(err).Msg("Failed to read directory")
-		return windowMsg{to: fw.id, msg: err}
+		return windowMsg{to: v.id, msg: err}
 	}
-	return windowMsg{to: fw.id, msg: dir}
+	return windowMsg{to: v.id, msg: dir}
 }
 
-func (fw Window) Update(msg tea.Msg) (Window, tea.Cmd) {
+func (v View) Update(msg tea.Msg) (View, tea.Cmd) {
 	switch msg := msg.(type) {
 	case windowMsg:
-		if msg.to != fw.id {
+		if msg.to != v.id {
 			break
 		}
 
 		switch msg := msg.msg.(type) {
 		case fs.Directory:
-			fw.dir = msg
-			fw.err = nil
+			v.dir = msg
+			v.err = nil
 
 		case error:
-			fw.err = msg
+			v.err = msg
 
 		}
 
 	case tea.KeyMsg:
 		switch kp := msg.String(); kp {
 		case ".":
-			fw.dir.ToggleShowHiddenFiles()
-			return fw, nil
+			v.dir.ToggleShowHiddenFiles()
+			return v, nil
 		}
 	}
 
-	return fw, nil
+	return v, nil
 }
 
-func (fw Window) View() string {
-	if fw.err != nil { // check error first
-		return fw.err.Error()
+func (v View) View() string {
+	if v.err != nil { // check error first
+		return v.err.Error()
 	}
 
 	var nameBuilder strings.Builder
-	names := make([]string, 0, fw.dir.GetVisibleFileCount())
+	names := make([]string, 0, v.dir.GetVisibleFileCount())
 	drawn := 0
 
-	for i := fw.fileStart; i < fw.dir.GetVisibleFileCount() && drawn < fw.h; i++ {
+	for i := v.fileStart; i < v.dir.GetVisibleFileCount() && drawn < v.h; i++ {
 		charsWritten := 0
 		drawn++
-		if i == fw.dir.GetCursorIndex() {
+		if i == v.dir.GetCursorIndex() {
 			nameBuilder.WriteString("> ")
 			charsWritten += 2
 		}
 
-		selectedFile := fw.dir.GetFileAtIndex(i).GetDirEntry()
+		selectedFile := v.dir.GetFileAtIndex(i).GetDirEntry()
 		name := selectedFile.Name()
-		if len(name)+charsWritten > fw.w {
-			name = name[:fw.w-charsWritten-1] + "~"
+		if len(name)+charsWritten > v.w {
+			name = name[:v.w-charsWritten-1] + "~"
 		}
 		charsWritten += len(name)
 
 		nameBuilder.WriteString(util.GetStyle(selectedFile).Render(name))
 
-		if charsWritten+1 <= fw.w && selectedFile.IsDir() {
+		if charsWritten+1 <= v.w && selectedFile.IsDir() {
 			nameBuilder.WriteString("/")
 		}
 
@@ -130,58 +130,58 @@ func (fw Window) View() string {
 		nameBuilder.Reset()
 	}
 
-	style := lipgloss.NewStyle().Width(fw.w)
+	style := lipgloss.NewStyle().Width(v.w)
 	return style.Render(strings.Join(names, "\n"))
 }
 
 // SetSize sets the max allowed size of the window
-func (fw *Window) SetSize(w, h int) *Window {
-	fw.w = w
-	fw.h = h
-	return fw
+func (v *View) SetSize(w, h int) *View {
+	v.w = w
+	v.h = h
+	return v
 }
 
 // Move moves the cursor up or down
-func (fw *Window) Move(dir Direction) *Window {
+func (v *View) Move(dir Direction) *View {
 	if dir == Up {
-		if fw.dir.GetCursorIndex() > 0 {
-			fw.dir.MoveCursorUp()
+		if v.dir.GetCursorIndex() > 0 {
+			v.dir.MoveCursorUp()
 
-			if fw.fileStart > (fw.dir.GetCursorIndex() - fw.scrollPadding) {
-				fw.fileStart = util.Max(0, fw.fileStart-1)
+			if v.fileStart > (v.dir.GetCursorIndex() - v.scrollPadding) {
+				v.fileStart = util.Max(0, v.fileStart-1)
 			}
 		}
 	} else {
-		if fw.dir.GetCursorIndex() < fw.dir.GetVisibleFileCount()-1 {
-			fw.dir.MoveCursorDown()
+		if v.dir.GetCursorIndex() < v.dir.GetVisibleFileCount()-1 {
+			v.dir.MoveCursorDown()
 
-			if fw.dir.GetCursorIndex()-fw.fileStart+1 > (fw.h - fw.scrollPadding) {
-				fw.fileStart = util.Min(fw.dir.GetVisibleFileCount()-fw.h, fw.fileStart+1)
+			if v.dir.GetCursorIndex()-v.fileStart+1 > (v.h - v.scrollPadding) {
+				v.fileStart = util.Min(v.dir.GetVisibleFileCount()-v.h, v.fileStart+1)
 			}
 		}
 	}
-	return fw
+	return v
 }
 
 // GetSelection returns the current file the cursor is over
-func (fw Window) GetSelection() fss.DirEntry {
-	return fw.dir.GetFileAtCursor().GetDirEntry()
+func (v View) GetSelection() fss.DirEntry {
+	return v.dir.GetFileAtCursor().GetDirEntry()
 }
 
 // GetSelectedPath returns the path to the viewed directory
-func (fw Window) GetPath() string {
-	return fw.path
+func (v View) GetPath() string {
+	return v.path
 }
 
 // GetSelectedPath returns the path to the currently selected file
-func (fw Window) GetSelectedPath() string {
-	return path.Join(fw.path, fw.GetSelection().Name())
+func (v View) GetSelectedPath() string {
+	return path.Join(v.path, v.GetSelection().Name())
 }
 
-func (fw Window) logState() {
+func (v View) logState() {
 	util.Log.Debug().
-		Str("path", fw.path).
-		Int("h", fw.h).
-		Int("w", fw.w).
+		Str("path", v.path).
+		Int("h", v.h).
+		Int("w", v.w).
 		Send()
 }
