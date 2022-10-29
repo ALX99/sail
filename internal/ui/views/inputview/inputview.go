@@ -1,11 +1,13 @@
 package inputview
 
 import (
+	"strings"
+
 	tea "github.com/charmbracelet/bubbletea"
 )
 
 type View struct {
-	input     string
+	input     strings.Builder
 	isFocused bool
 }
 
@@ -25,7 +27,7 @@ func (v View) Update(msg tea.Msg) (View, tea.Cmd) {
 		case tea.KeyEsc, tea.KeyCtrlC:
 			if v.isFocused {
 				v.isFocused = false
-				v.input = ""
+				v.input.Reset()
 			}
 			return v, nil
 		}
@@ -35,21 +37,21 @@ func (v View) Update(msg tea.Msg) (View, tea.Cmd) {
 			if !v.isFocused {
 				v.isFocused = true
 			} else {
-				v.input += ":"
+				v.input.WriteString(":")
 			}
 			return v, nil
 
 		default:
-			v.input += msg.String()
+			v.input.WriteString(kp)
+			return v, nil
 		}
-
-		return v, nil
 	}
+
 	return v, nil
 }
 
 func (v View) View() string {
-	return ":" + v.input
+	return ":" + v.input.String()
 }
 
 func (v View) Focused() bool {
