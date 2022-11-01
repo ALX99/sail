@@ -3,6 +3,7 @@ package mainview
 import (
 	"os"
 
+	"github.com/alx99/fly/internal/command"
 	"github.com/alx99/fly/internal/config"
 	"github.com/alx99/fly/internal/ui/views/fileview"
 	"github.com/alx99/fly/internal/ui/views/inputview"
@@ -39,7 +40,7 @@ func New(cfg config.Config) view {
 	fws[wd] = fileview.New(home, 0, 0, cfg)
 	fws[cd] = fileview.New("todo", 0, 0, cfg)
 
-	return view{fws: fws, cfg: cfg}
+	return view{fws: fws, cfg: cfg, iv: inputview.New()}
 }
 
 func (v view) Init() tea.Cmd {
@@ -57,7 +58,7 @@ func (v view) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			v.fwHeight -= 1
 		}
 
-		v.updateFWSizes()
+		v.updateFWSizes(v.iv)
 
 		util.Log.Debug().
 			Int("height", msg.Height).
@@ -66,12 +67,11 @@ func (v view) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case tea.KeyMsg:
 		if v.iv.Focused() {
-			v.iv, _ = v.iv.Update(msg)
-
-			if !v.iv.Focused() {
-				v.fwHeight++ // inpuvtview is no longer visible
-				v.updateFWSizes()
+			newIV, cmd := v.iv.Update(msg)
+			if cmd == command.RecalculateViews {
+				v.updateFWSizes(newIV)
 			}
+			v.iv = newIV
 
 			return v, nil
 		}
@@ -114,15 +114,15 @@ func (v view) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	}
 
-	v.iv, _ = v.iv.Update(msg)
-	if !v.iv.Focused() {
+	newIV, cmd := v.iv.Update(msg)
+	if !newIV.Focused() {
 		for i := range v.fws {
 			v.fws[i], _ = v.fws[i].Update(msg)
 		}
-	} else {
-		v.fwHeight-- // inputview is now focused
-		v.updateFWSizes()
+	} else if cmd == command.RecalculateViews {
+		v.updateFWSizes(newIV)
 	}
+	v.iv = newIV
 
 	return v, nil
 }
@@ -138,7 +138,13 @@ func (v view) View() string {
 	return lipgloss.JoinHorizontal(lipgloss.Left, res...)
 }
 
-func (v *view) updateFWSizes() {
+func (v *view) updateFWSizes(newIV inputview.View) {
+	if v.iv.Focused() && !newIV.Focused() {
+		v.fwHeight++ // inputview is no longer focused
+	} else if !v.iv.Focused() && newIV.Focused() {
+		v.fwHeight-- // inputview is now focused
+	}
+
 	v.fws[pd].SetSize(v.fwWidth, v.fwHeight)
 	v.fws[wd].SetSize(v.fwWidth, v.fwHeight)
 	v.fws[cd].SetSize(v.w-v.fwWidth*2, v.fwHeight)

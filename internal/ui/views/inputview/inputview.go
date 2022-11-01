@@ -3,51 +3,56 @@ package inputview
 import (
 	"strings"
 
+	"github.com/alx99/fly/internal/command"
 	tea "github.com/charmbracelet/bubbletea"
 )
 
 type View struct {
-	input     strings.Builder
+	input     *strings.Builder
 	isFocused bool
 }
 
 func New() View {
-	return View{}
+	return View{input: &strings.Builder{}}
 }
 
 func (v View) Init() tea.Cmd {
 	return nil
 }
 
-func (v View) Update(msg tea.Msg) (View, tea.Cmd) {
+func (v View) Update(msg tea.Msg) (View, command.Command) {
 	switch msg := msg.(type) {
 
 	case tea.KeyMsg:
 		switch msg.Type {
-		case tea.KeyEsc, tea.KeyCtrlC:
+		case tea.KeyEsc, tea.KeyCtrlC, tea.KeyEnter:
 			if v.isFocused {
 				v.isFocused = false
 				v.input.Reset()
+				return v, command.RecalculateViews
 			}
-			return v, nil
+			return v, command.NUL
 		}
 
 		switch kp := msg.String(); kp {
 		case ":":
 			if !v.isFocused {
 				v.isFocused = true
+				return v, command.RecalculateViews
 			} else {
 				v.input.WriteString(":")
 			}
-			return v, nil
+			return v, command.NUL
 
 		default:
-			v.input.WriteString(kp)
-			return v, nil
+			if v.isFocused {
+				v.input.WriteString(kp)
+			}
+			return v, command.NUL
 		}
 	}
 
-	return v, nil
+	return v, command.NUL
 }
 
 func (v View) View() string {
