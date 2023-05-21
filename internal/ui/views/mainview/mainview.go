@@ -15,7 +15,7 @@ import (
 
 const (
 	pd = iota // parent directory
-	wd        // working directoy
+	wd        // working directory
 	cd        // child directory
 )
 
@@ -95,7 +95,7 @@ func (v view) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return v, nil
 
-		case "k":
+		case "m":
 			if v.fws[pd].GetPath() == "/" {
 				break
 			}

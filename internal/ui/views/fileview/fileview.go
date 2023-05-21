@@ -22,6 +22,13 @@ const (
 	Down
 )
 
+func (d Direction) String() string {
+	if d == Up {
+		return "up"
+	}
+	return "down"
+}
+
 var (
 	id ID = 0
 )
@@ -32,15 +39,14 @@ type windowMsg struct {
 }
 
 type View struct {
-	path     string
-	dir      fs.Directory
-	moveDown bool
-	err      error
+	path string
+	dir  fs.Directory
+	err  error
 
-	id            ID
-	h, w          int
-	prevFileStart int
-	fileStart     int
+	id          ID
+	h, w        int
+	offset      int
+	cursorIndex int
 
 	// Configurable settings
 	scrollPadding int
@@ -64,8 +70,8 @@ func (v View) Init() tea.Msg {
 	dir, err := fs.NewDirectory(v.path)
 	if err != nil {
 		log.Err(err).
-      Str("path",v.path).
-      Msg("Failed to read directory")
+			Str("path", v.path).
+			Msg("Failed to read directory")
 		return windowMsg{to: v.id, msg: err}
 	}
 	return windowMsg{to: v.id, msg: dir}
@@ -74,6 +80,7 @@ func (v View) Init() tea.Msg {
 func (v View) Update(msg tea.Msg) (View, tea.Cmd) {
 	switch msg := msg.(type) {
 	case windowMsg:
+		// Make sure it is addressed to me
 		if msg.to != v.id {
 			break
 		}
@@ -92,6 +99,9 @@ func (v View) Update(msg tea.Msg) (View, tea.Cmd) {
 		switch kp := msg.String(); kp {
 		case ".":
 			v.dir.ToggleShowHiddenFiles()
+			// TODO better logic
+			v.offset = 0
+			v.cursorIndex = 0
 			return v, nil
 		}
 	}
@@ -104,19 +114,23 @@ func (v View) View() string {
 		return v.err.Error()
 	}
 
+	files := v.dir.VisibleFiles()
 	var nameBuilder strings.Builder
-	names := make([]string, 0, v.dir.GetVisibleFileCount())
-	drawn := 0
+	names := make([]string, 0, len(files))
 
-	for i := v.fileStart; i < v.dir.GetVisibleFileCount() && drawn < v.h; i++ {
+	for i := v.offset; i < len(files); i++ {
+		if i-v.offset == v.h {
+			break
+		}
+
+		file := files[i]
 		charsWritten := 0
-		drawn++
-		if i == v.dir.GetCursorIndex() {
+		if i == v.cursorIndex {
 			nameBuilder.WriteString("> ")
 			charsWritten += 2
 		}
 
-		selectedFile := v.dir.GetFileAtIndex(i).GetDirEntry()
+		selectedFile := file.GetDirEntry()
 		name := selectedFile.Name()
 		if len(name)+charsWritten > v.w {
 			name = name[:v.w-charsWritten-1] + "~"
@@ -147,28 +161,35 @@ func (v *View) SetSize(w, h int) *View {
 // Move moves the cursor up or down
 func (v *View) Move(dir Direction) *View {
 	if dir == Up {
-		if v.dir.GetCursorIndex() > 0 {
-			v.dir.MoveCursorUp()
-
-			if v.fileStart > (v.dir.GetCursorIndex() - v.scrollPadding) {
-				v.fileStart = util.Max(0, v.fileStart-1)
+		if v.cursorIndex >= 1 {
+			v.cursorIndex--
+			if v.cursorIndex < v.offset {
+				v.offset--
 			}
 		}
 	} else {
-		if v.dir.GetCursorIndex() < v.dir.GetVisibleFileCount()-1 {
-			v.dir.MoveCursorDown()
-
-			if v.dir.GetCursorIndex()-v.fileStart+1 > (v.h - v.scrollPadding) {
-				v.fileStart = util.Min(v.dir.GetVisibleFileCount()-v.h, v.fileStart+1)
+		fileCount := len(v.dir.VisibleFiles())
+		if v.cursorIndex < fileCount-1 {
+			v.cursorIndex++
+			if v.cursorIndex > v.h-1 {
+				v.offset++
 			}
 		}
 	}
+
+	log.Debug().
+		Int("cursorIndex", v.cursorIndex).
+		Int("offset", v.offset).
+		Str("direction", dir.String()).
+		Str("fileName", v.dir.GetFileAtIndex(v.cursorIndex).GetDirEntry().Name()).
+		Msg("moved")
+
 	return v
 }
 
 // GetSelection returns the current file the cursor is over
 func (v View) GetSelection() fss.DirEntry {
-	return v.dir.GetFileAtCursor().GetDirEntry()
+	return v.dir.GetFileAtIndex(v.cursorIndex).GetDirEntry()
 }
 
 // GetSelectedPath returns the path to the viewed directory

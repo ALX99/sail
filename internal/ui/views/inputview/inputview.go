@@ -26,12 +26,12 @@ func (v View) Update(msg tea.Msg) (View, command.Command) {
 	case tea.KeyMsg:
 		switch msg.Type {
 		case tea.KeyEsc, tea.KeyCtrlC, tea.KeyEnter:
-			if v.isFocused {
-				v.isFocused = false
-				v.input.Reset()
-				return v, command.RecalculateViews
+			if !v.isFocused {
+				return v, command.NUL // Do nothing if not focused
 			}
-			return v, command.NUL
+			v.isFocused = false
+			v.input.Reset()
+			return v, command.RecalculateViews
 		}
 
 		switch kp := msg.String(); kp {

@@ -8,7 +8,6 @@ import (
 type Directory struct {
 	files           []File
 	fileCount       int
-	cursor          int
 	showHiddenFiles bool
 }
 
@@ -20,10 +19,10 @@ func NewDirectory(path string) (Directory, error) {
 
 	f := Directory{
 		showHiddenFiles: true,
+		fileCount:       len(files),
 	}
-	f.fileCount = len(files)
-
 	f.files = make([]File, 0, f.fileCount)
+
 	for _, dEntry := range files {
 		f.files = append(f.files, newFile(dEntry))
 	}
@@ -36,50 +35,37 @@ func NewDirectory(path string) (Directory, error) {
 }
 
 // ToggleShowHiddenFiles toggles showing hidden files
-func (d *Directory) ToggleShowHiddenFiles() {
+// and returns true if it is now showing hidden files
+func (d *Directory) ToggleShowHiddenFiles() bool {
 	d.showHiddenFiles = !d.showHiddenFiles
 
-	for _, f := range d.files {
-		if d.showHiddenFiles && f.hidden && !f.visible {
-			f.visible = true
+	for i := 0; i < d.fileCount; i++ {
+		if d.showHiddenFiles && d.files[i].hidden && !d.files[i].visible {
+			d.files[i].visible = true
 		}
-		if !d.showHiddenFiles && f.hidden && f.visible {
-			f.visible = false
+		if !d.showHiddenFiles && d.files[i].hidden && d.files[i].visible {
+			d.files[i].visible = false
 		}
 	}
+	return d.showHiddenFiles
 }
 
-// MoveCursorUp moves the cursor up in the directory
-func (d *Directory) MoveCursorUp() {
-	d.cursor--
+// VisibleFiles returns the files visible to the user
+func (d *Directory) VisibleFiles() []File {
+	files := []File{}
+	for i := 0; i < d.fileCount; i++ {
+		if d.files[i].visible {
+			files = append(files, d.files[i])
+		}
+	}
+	return files
 }
 
-// MoveCursorDown moves the cursor down in the directory
-func (d *Directory) MoveCursorDown() {
-	d.cursor++
-}
-
-// GetCursorIndex returs the current index of the cursor
-func (d Directory) GetCursorIndex() int {
-	return d.cursor
-}
-
-// GetFileCount returns the total numer of files in the directory
-func (d Directory) GetFileCount() int {
-	return d.fileCount
-}
-
-// GetFileAtCursor returns the file under the cursor
-func (d Directory) GetFileAtCursor() File {
-	return d.files[d.cursor]
+func (d *Directory) Files() []File {
+	return d.files
 }
 
 // GetFileAtIndex returns the file at a certain index i
 func (d Directory) GetFileAtIndex(i int) File {
 	return d.files[i]
-}
-
-// GetVisibleFileCount returns the number of currently visible files
-func (d Directory) GetVisibleFileCount() int {
-	return d.fileCount
 }
