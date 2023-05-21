@@ -8,16 +8,17 @@ import (
 	"github.com/alx99/fly/internal/ui/views/mainview"
 	"github.com/alx99/fly/internal/util"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/rs/zerolog/log"
 )
 
 func main() {
 	util.SetupLogger()
-	util.Log.Info().Msg("Fly started")
+	log.Info().Msg("Fly started")
 
 	util.SetupStyles()
 	cfg, err := config.GetConfig()
 	if err != nil {
-		util.Log.Fatal().Err(err).Send()
+		log.Fatal().Err(err).Send()
 	}
 
 	mw := mainview.New(cfg)

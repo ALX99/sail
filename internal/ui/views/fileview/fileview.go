@@ -11,6 +11,7 @@ import (
 	"github.com/alx99/fly/internal/util"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/rs/zerolog/log"
 )
 
 type Direction uint8
@@ -62,7 +63,7 @@ func New(path string, width, height int, cfg config.Config) View {
 func (v View) Init() tea.Msg {
 	dir, err := fs.NewDirectory(v.path)
 	if err != nil {
-		util.Log.Err(err).Msg("Failed to read directory")
+		log.Err(err).Msg("Failed to read directory")
 		return windowMsg{to: v.id, msg: err}
 	}
 	return windowMsg{to: v.id, msg: dir}
@@ -179,7 +180,7 @@ func (v View) GetSelectedPath() string {
 }
 
 func (v View) logState() {
-	util.Log.Debug().
+	log.Debug().
 		Str("path", v.path).
 		Int("h", v.h).
 		Int("w", v.w).

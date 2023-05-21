@@ -10,6 +10,7 @@ import (
 	"github.com/alx99/fly/internal/util"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/rs/zerolog/log"
 )
 
 const (
@@ -60,7 +61,7 @@ func (v view) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		v.updateFWSizes(v.iv)
 
-		util.Log.Debug().
+		log.Debug().
 			Int("height", msg.Height).
 			Int("Width", msg.Width).
 			Msg("Terminal size updated")
@@ -151,7 +152,7 @@ func (v *view) updateFWSizes(newIV inputview.View) {
 }
 
 func (v view) logState() {
-	util.Log.Debug().
+	log.Debug().
 		Str("pd", v.fws[pd].GetPath()).
 		Str("wd", v.fws[wd].GetPath()).
 		Str("cd", v.fws[cd].GetPath()).
