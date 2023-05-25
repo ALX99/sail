@@ -4,7 +4,6 @@ import (
 	"errors"
 	"os"
 
-	"github.com/alx99/fly/internal/command"
 	"github.com/alx99/fly/internal/config"
 	"github.com/alx99/fly/internal/ui/views/fileview"
 	"github.com/alx99/fly/internal/ui/views/inputview"
@@ -50,7 +49,7 @@ func New(cfg config.Config) (view, error) {
 		fws[cd] = fileview.New("", 0, 0, cfg)
 	}
 
-	return view{fws: fws, cfg: cfg, iv: inputview.New()},nil
+	return view{fws: fws, cfg: cfg, iv: inputview.New()}, nil
 }
 
 func (v view) Init() tea.Cmd {
@@ -65,10 +64,10 @@ func (v view) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		v.fwWidth = msg.Width / 3 // width
 		v.fwHeight = msg.Height
 		if v.iv.Focused() {
-			v.fwHeight -= 1
+			v.updateFWHeight(-1)
+		} else {
+			v.updateFWHeight(0)
 		}
-
-		v.updateFWSizes(v.iv)
 
 		log.Debug().
 			Int("height", msg.Height).
@@ -76,14 +75,19 @@ func (v view) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			Msg("Terminal size updated")
 
 	case tea.KeyMsg:
-		if v.iv.Focused() {
-			newIV, cmd := v.iv.Update(msg)
-			if cmd == command.RecalculateViews {
-				v.updateFWSizes(newIV)
+		newIV, cmd := v.iv.Update(msg)
+		// focus changed
+		if v.iv.Focused() != newIV.Focused() {
+			if newIV.Focused() {
+				v.updateFWHeight(-1)
+			} else {
+				v.updateFWHeight(1)
 			}
-			v.iv = newIV
+		}
 
-			return v, nil
+		v.iv = newIV
+		if v.iv.Focused() {
+			return v, cmd // focus obtained, no need to propagate msg
 		}
 
 		switch kp := msg.String(); kp {
@@ -127,20 +131,16 @@ func (v view) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			v.fws[cd] = fileview.New(v.fws[wd].GetSelectedPath(), v.w/3, v.h, v.cfg)
 			return v, v.fws[cd].Init()
 		}
-
 	}
 
-	newIV, cmd := v.iv.Update(msg)
-	if !newIV.Focused() {
-		for i := range v.fws {
-			v.fws[i], _ = v.fws[i].Update(msg)
-		}
-	} else if cmd == command.RecalculateViews {
-		v.updateFWSizes(newIV)
+	cmds := []tea.Cmd{}
+	for i := range v.fws {
+		var cmd tea.Cmd
+		v.fws[i], cmd = v.fws[i].Update(msg)
+		cmds = append(cmds, cmd)
 	}
-	v.iv = newIV
 
-	return v, nil
+	return v, tea.Batch(cmds...)
 }
 
 func (v view) View() string {
@@ -154,12 +154,8 @@ func (v view) View() string {
 	return lipgloss.JoinHorizontal(lipgloss.Left, res...)
 }
 
-func (v *view) updateFWSizes(newIV inputview.View) {
-	if v.iv.Focused() && !newIV.Focused() {
-		v.fwHeight++ // inputview is no longer focused
-	} else if !v.iv.Focused() && newIV.Focused() {
-		v.fwHeight-- // inputview is now focused
-	}
+func (v *view) updateFWHeight(delta int) {
+	v.fwHeight += delta
 
 	v.fws[pd].SetSize(v.fwWidth, v.fwHeight)
 	v.fws[wd].SetSize(v.fwWidth, v.fwHeight)
