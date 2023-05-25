@@ -39,13 +39,21 @@ func New(cfg config.Config) view {
 
 	fws[pd] = fileview.New(util.GetParentPath(home), 0, 0, cfg)
 	fws[wd] = fileview.New(home, 0, 0, cfg)
-	fws[cd] = fileview.New("todo", 0, 0, cfg)
+	if err := fws[wd].Load(); err != nil {
+		panic(err)
+	}
+
+	if fws[wd].GetSelection().IsDir() {
+		fws[cd] = fileview.New(fws[wd].GetSelectedPath(), 0, 0, cfg)
+	} else {
+		fws[cd] = fileview.New("", 0, 0, cfg)
+	}
 
 	return view{fws: fws, cfg: cfg, iv: inputview.New()}
 }
 
 func (v view) Init() tea.Cmd {
-	return tea.Batch(v.fws[0].Init(), v.fws[1].Init(), v.fws[2].Init(), tea.EnterAltScreen)
+	return tea.Batch(v.fws[cd].Init(), v.fws[pd].Init(), tea.EnterAltScreen)
 }
 
 func (v view) Update(msg tea.Msg) (tea.Model, tea.Cmd) {

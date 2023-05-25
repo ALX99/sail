@@ -77,6 +77,12 @@ func (v View) Init() tea.Cmd {
 	}
 }
 
+// Load loads the directory instantly
+func (v *View) Load() (err error) {
+	v.dir, err = fs.NewDirectory(v.path)
+	return
+}
+
 func (v View) Update(msg tea.Msg) (View, tea.Cmd) {
 	switch msg := msg.(type) {
 	case windowMsg:
