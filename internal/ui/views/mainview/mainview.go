@@ -96,23 +96,29 @@ func (v view) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return v, nil
 
 		case "m":
-			if v.fws[pd].GetPath() == "/" {
-				break
+			if !v.fws[pd].IsFocusable() {
+				return v, nil
 			}
+
 			v.fws[cd] = v.fws[wd]
 			v.fws[wd] = v.fws[pd]
-			v.fws[pd] = fileview.New(util.GetParentPath(v.fws[pd].GetPath()), v.w-v.fwWidth*2, v.h, v.cfg)
+			if v.fws[pd].GetPath() == "/" {
+				v.fws[pd] = fileview.New("", v.w/3, v.h, v.cfg)
+			} else {
+				v.fws[pd] = fileview.New(util.GetParentPath(v.fws[pd].GetPath()), v.w/3, v.h, v.cfg)
+			}
 			return v, v.fws[pd].Init
 
 		case "i":
-			if !v.fws[wd].GetSelection().IsDir() {
-				break
+			if !v.fws[cd].IsFocusable() || !v.fws[wd].GetSelection().IsDir() {
+				return v, nil
 			}
 			v.fws[pd] = v.fws[wd]
 			v.fws[wd] = v.fws[cd]
 			v.fws[cd] = fileview.New(v.fws[wd].GetSelectedPath(), v.w/3, v.h, v.cfg)
 			return v, v.fws[cd].Init
 		}
+
 	}
 
 	newIV, cmd := v.iv.Update(msg)

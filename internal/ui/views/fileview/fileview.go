@@ -187,6 +187,11 @@ func (v *View) Move(dir Direction) *View {
 	return v
 }
 
+// IsFocusable returns true if it is possible to focus the current view
+func (v View) IsFocusable() bool {
+	return v.err == nil
+}
+
 // GetSelection returns the current file the cursor is over
 func (v View) GetSelection() fss.DirEntry {
 	return v.dir.GetFileAtIndex(v.cursorIndex).GetDirEntry()
