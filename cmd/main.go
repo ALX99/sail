@@ -1,9 +1,6 @@
 package main
 
 import (
-	"fmt"
-	"os"
-
 	"github.com/alx99/fly/internal/config"
 	"github.com/alx99/fly/internal/ui/views/mainview"
 	"github.com/alx99/fly/internal/util"
@@ -21,9 +18,12 @@ func main() {
 		log.Fatal().Err(err).Send()
 	}
 
-	mw := mainview.New(cfg)
+	mw, err := mainview.New(cfg)
+	if err != nil {
+		log.Fatal().Err(err).Send()
+	}
+
 	if err := tea.NewProgram(mw).Start(); err != nil {
-		fmt.Printf("Uh oh, there was an error: %v\n", err)
-		os.Exit(1)
+		log.Fatal().Err(err).Send()
 	}
 }

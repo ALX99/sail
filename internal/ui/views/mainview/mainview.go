@@ -1,6 +1,7 @@
 package mainview
 
 import (
+	"errors"
 	"os"
 
 	"github.com/alx99/fly/internal/command"
@@ -30,17 +31,17 @@ type view struct {
 	cfg config.Config
 }
 
-func New(cfg config.Config) view {
+func New(cfg config.Config) (view, error) {
 	fws := make([]fileview.View, 3)
 	home, ok := os.LookupEnv("HOME")
 	if !ok {
-		panic("$HOME not set")
+		return view{}, errors.New("$HOME not set")
 	}
 
 	fws[pd] = fileview.New(util.GetParentPath(home), 0, 0, cfg)
 	fws[wd] = fileview.New(home, 0, 0, cfg)
 	if err := fws[wd].Load(); err != nil {
-		panic(err)
+		return view{}, err
 	}
 
 	if fws[wd].GetSelection().IsDir() {
@@ -49,7 +50,7 @@ func New(cfg config.Config) view {
 		fws[cd] = fileview.New("", 0, 0, cfg)
 	}
 
-	return view{fws: fws, cfg: cfg, iv: inputview.New()}
+	return view{fws: fws, cfg: cfg, iv: inputview.New()},nil
 }
 
 func (v view) Init() tea.Cmd {
