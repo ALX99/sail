@@ -45,7 +45,7 @@ func New(cfg config.Config) view {
 }
 
 func (v view) Init() tea.Cmd {
-	return tea.Batch(v.fws[0].Init, v.fws[1].Init, v.fws[2].Init, tea.EnterAltScreen)
+	return tea.Batch(v.fws[0].Init(), v.fws[1].Init(), v.fws[2].Init(), tea.EnterAltScreen)
 }
 
 func (v view) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -84,14 +84,14 @@ func (v view) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "e":
 			if v.fws[wd].Move(fileview.Up).GetSelection().IsDir() {
 				v.fws[cd] = fileview.New(v.fws[wd].GetSelectedPath(), v.fwWidth, v.fwHeight, v.cfg)
-				return v, v.fws[cd].Init
+				return v, v.fws[cd].Init()
 			}
 			return v, nil
 
 		case "n":
 			if v.fws[wd].Move(fileview.Down).GetSelection().IsDir() {
 				v.fws[cd] = fileview.New(v.fws[wd].GetSelectedPath(), v.fwWidth, v.fwHeight, v.cfg)
-				return v, v.fws[cd].Init
+				return v, v.fws[cd].Init()
 			}
 			return v, nil
 
@@ -107,7 +107,7 @@ func (v view) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			} else {
 				v.fws[pd] = fileview.New(util.GetParentPath(v.fws[pd].GetPath()), v.w/3, v.h, v.cfg)
 			}
-			return v, v.fws[pd].Init
+			return v, v.fws[pd].Init()
 
 		case "i":
 			if !v.fws[cd].IsFocusable() || !v.fws[wd].GetSelection().IsDir() {
@@ -116,7 +116,7 @@ func (v view) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			v.fws[pd] = v.fws[wd]
 			v.fws[wd] = v.fws[cd]
 			v.fws[cd] = fileview.New(v.fws[wd].GetSelectedPath(), v.w/3, v.h, v.cfg)
-			return v, v.fws[cd].Init
+			return v, v.fws[cd].Init()
 		}
 
 	}

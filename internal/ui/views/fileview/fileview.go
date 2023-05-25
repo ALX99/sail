@@ -64,17 +64,17 @@ func New(path string, width, height int, cfg config.Config) View {
 	}
 }
 
-// Init will return the necessary tea.Msg for the fileWindow
-// to become initialized and ready
-func (v View) Init() tea.Msg {
-	dir, err := fs.NewDirectory(v.path)
-	if err != nil {
-		log.Err(err).
-			Str("path", v.path).
-			Msg("Failed to read directory")
-		return windowMsg{to: v.id, msg: err}
+func (v View) Init() tea.Cmd {
+	return func() tea.Msg {
+		dir, err := fs.NewDirectory(v.path)
+		if err != nil {
+			log.Err(err).
+				Str("path", v.path).
+				Msg("Failed to read directory")
+			return windowMsg{to: v.id, msg: err}
+		}
+		return windowMsg{to: v.id, msg: dir}
 	}
-	return windowMsg{to: v.id, msg: dir}
 }
 
 func (v View) Update(msg tea.Msg) (View, tea.Cmd) {
