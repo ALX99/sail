@@ -23,7 +23,8 @@ func main() {
 		log.Fatal().Err(err).Send()
 	}
 
-	if err := tea.NewProgram(mw).Start(); err != nil {
+	_, err = tea.NewProgram(mw, tea.WithAltScreen()).Run()
+	if err != nil {
 		log.Fatal().Err(err).Send()
 	}
 }

@@ -53,7 +53,7 @@ func New(cfg config.Config) (view, error) {
 }
 
 func (v view) Init() tea.Cmd {
-	return tea.Batch(v.fws[cd].Init(), v.fws[pd].Init(), tea.EnterAltScreen)
+	return tea.Batch(v.fws[cd].Init(), v.fws[pd].Init())
 }
 
 func (v view) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
