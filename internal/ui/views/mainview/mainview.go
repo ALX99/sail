@@ -13,15 +13,11 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-const (
-	pd = iota // parent directory
-	wd        // working directory
-	cd        // child directory
-)
-
 type view struct {
-	fws []fileview.View
-	iv  inputview.View
+	pd fileview.View // parent directory
+	wd fileview.View // working directory
+	cd fileview.View // child directory
+	iv inputview.View
 
 	h, w     int
 	fwWidth  int
@@ -31,29 +27,32 @@ type view struct {
 }
 
 func New(cfg config.Config) (view, error) {
-	fws := make([]fileview.View, 3)
 	home, ok := os.LookupEnv("HOME")
 	if !ok {
 		return view{}, errors.New("$HOME not set")
 	}
-
-	fws[pd] = fileview.New(util.GetParentPath(home), 0, 0, cfg)
-	fws[wd] = fileview.New(home, 0, 0, cfg)
-	if err := fws[wd].Load(); err != nil {
-		return view{}, err
+	v := view{
+		pd:  fileview.New(util.GetParentPath(home), 0, 0, cfg),
+		cfg: cfg,
+		iv:  inputview.New(),
 	}
 
-	if fws[wd].GetSelection().IsDir() {
-		fws[cd] = fileview.New(fws[wd].GetSelectedPath(), 0, 0, cfg)
+	v.wd = fileview.New(home, 0, 0, cfg)
+	if err := v.wd.Load(); err != nil {
+		return v, err
+	}
+
+	if v.wd.GetSelection().IsDir() {
+		v.cd = fileview.New(v.wd.GetSelectedPath(), 0, 0, cfg)
 	} else {
-		fws[cd] = fileview.New("", 0, 0, cfg)
+		v.cd = fileview.New("", 0, 0, cfg)
 	}
 
-	return view{fws: fws, cfg: cfg, iv: inputview.New()}, nil
+	return v, nil
 }
 
 func (v view) Init() tea.Cmd {
-	return tea.Batch(v.fws[cd].Init(), v.fws[pd].Init())
+	return tea.Batch(v.cd.Init(), v.pd.Init())
 }
 
 func (v view) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -95,59 +94,59 @@ func (v view) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return v, tea.Quit
 
 		case "e":
-			if v.fws[wd].Move(fileview.Up).GetSelection().IsDir() {
-				v.fws[cd] = fileview.New(v.fws[wd].GetSelectedPath(), v.fwWidth, v.fwHeight, v.cfg)
-				return v, v.fws[cd].Init()
+			if v.wd.Move(fileview.Up).GetSelection().IsDir() {
+				v.cd = fileview.New(v.wd.GetSelectedPath(), v.fwWidth, v.fwHeight, v.cfg)
+				return v, v.cd.Init()
 			}
 			return v, nil
 
 		case "n":
-			if v.fws[wd].Move(fileview.Down).GetSelection().IsDir() {
-				v.fws[cd] = fileview.New(v.fws[wd].GetSelectedPath(), v.fwWidth, v.fwHeight, v.cfg)
-				return v, v.fws[cd].Init()
+			if v.wd.Move(fileview.Down).GetSelection().IsDir() {
+				v.cd = fileview.New(v.wd.GetSelectedPath(), v.fwWidth, v.fwHeight, v.cfg)
+				return v, v.cd.Init()
 			}
 			return v, nil
 
 		case "m":
-			if !v.fws[pd].IsFocusable() {
+			if !v.pd.IsFocusable() {
 				return v, nil
 			}
 
-			v.fws[cd] = v.fws[wd]
-			v.fws[wd] = v.fws[pd]
-			if v.fws[pd].GetPath() == "/" {
-				v.fws[pd] = fileview.New("", v.w/3, v.h, v.cfg)
+			v.cd = v.wd
+			v.wd = v.pd
+			if v.pd.GetPath() == "/" {
+				v.pd = fileview.New("", v.w/3, v.h, v.cfg)
 			} else {
-				v.fws[pd] = fileview.New(util.GetParentPath(v.fws[pd].GetPath()), v.w/3, v.h, v.cfg)
+				v.pd = fileview.New(util.GetParentPath(v.pd.GetPath()), v.w/3, v.h, v.cfg)
 			}
-			return v, v.fws[pd].Init()
+			return v, v.pd.Init()
 
 		case "i":
-			if !v.fws[cd].IsFocusable() || !v.fws[wd].GetSelection().IsDir() {
+			if !v.cd.IsFocusable() || !v.wd.GetSelection().IsDir() {
 				return v, nil
 			}
-			v.fws[pd] = v.fws[wd]
-			v.fws[wd] = v.fws[cd]
-			v.fws[cd] = fileview.New(v.fws[wd].GetSelectedPath(), v.w/3, v.h, v.cfg)
-			return v, v.fws[cd].Init()
+			v.pd = v.wd
+			v.wd = v.cd
+			v.cd = fileview.New(v.wd.GetSelectedPath(), v.w/3, v.h, v.cfg)
+			return v, v.cd.Init()
 		}
 	}
 
 	cmds := []tea.Cmd{}
-	for i := range v.fws {
-		var cmd tea.Cmd
-		v.fws[i], cmd = v.fws[i].Update(msg)
-		cmds = append(cmds, cmd)
-	}
+	var cmd tea.Cmd
+	v.pd, cmd = v.pd.Update(msg)
+	cmds = append(cmds, cmd)
+	v.wd, cmd = v.wd.Update(msg)
+	cmds = append(cmds, cmd)
+	v.cd, cmd = v.cd.Update(msg)
+	cmds = append(cmds, cmd)
 
 	return v, tea.Batch(cmds...)
 }
 
 func (v view) View() string {
-	res := make([]string, len(v.fws))
-	for _, fw := range v.fws {
-		res = append(res, fw.View())
-	}
+	res := make([]string, 3)
+	res = append(res, v.pd.View(), v.wd.View(), v.cd.View())
 	if v.iv.Focused() {
 		return lipgloss.JoinVertical(0, lipgloss.JoinHorizontal(lipgloss.Left, res...), v.iv.View())
 	}
@@ -157,15 +156,15 @@ func (v view) View() string {
 func (v *view) updateFWHeight(delta int) {
 	v.fwHeight += delta
 
-	v.fws[pd].SetSize(v.fwWidth, v.fwHeight)
-	v.fws[wd].SetSize(v.fwWidth, v.fwHeight)
-	v.fws[cd].SetSize(v.w-v.fwWidth*2, v.fwHeight)
+	v.pd.SetSize(v.fwWidth, v.fwHeight)
+	v.wd.SetSize(v.fwWidth, v.fwHeight)
+	v.cd.SetSize(v.w-v.fwWidth*2, v.fwHeight)
 }
 
 func (v view) logState() {
 	log.Debug().
-		Str("pd", v.fws[pd].GetPath()).
-		Str("wd", v.fws[wd].GetPath()).
-		Str("cd", v.fws[cd].GetPath()).
+		Str("pd", v.pd.GetPath()).
+		Str("wd", v.wd.GetPath()).
+		Str("cd", v.cd.GetPath()).
 		Send()
 }
