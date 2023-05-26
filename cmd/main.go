@@ -2,7 +2,7 @@ package main
 
 import (
 	"github.com/alx99/fly/internal/config"
-	"github.com/alx99/fly/internal/ui/views/mainview"
+	"github.com/alx99/fly/internal/models/primary"
 	"github.com/alx99/fly/internal/util"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/rs/zerolog/log"
@@ -18,12 +18,12 @@ func main() {
 		log.Fatal().Err(err).Send()
 	}
 
-	mw, err := mainview.New(cfg)
+	m, err := primary.New(cfg)
 	if err != nil {
 		log.Fatal().Err(err).Send()
 	}
 
-	_, err = tea.NewProgram(mw, tea.WithAltScreen()).Run()
+	_, err = tea.NewProgram(m, tea.WithAltScreen()).Run()
 	if err != nil {
 		log.Fatal().Err(err).Send()
 	}
