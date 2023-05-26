@@ -210,7 +210,15 @@ func (v View) GetPath() string {
 
 // GetSelectedPath returns the path to the currently selected file
 func (v View) GetSelectedPath() string {
+	if v.Empty() {
+		return v.path
+	}
 	return path.Join(v.path, v.GetSelection().Name())
+}
+
+// Empty returns true if the directory is empty to the user
+func (v View) Empty() bool {
+	return len(v.dir.VisibleFiles()) == 0
 }
 
 func (v View) logState() {

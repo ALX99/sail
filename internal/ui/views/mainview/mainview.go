@@ -42,7 +42,7 @@ func New(cfg config.Config) (view, error) {
 		return v, err
 	}
 
-	if v.wd.GetSelection().IsDir() {
+	if !v.wd.Empty() && v.wd.GetSelection().IsDir() {
 		v.cd = fileview.New(v.wd.GetSelectedPath(), 0, 0, cfg)
 	} else {
 		v.cd = fileview.New("", 0, 0, cfg)
@@ -94,14 +94,14 @@ func (v view) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return v, tea.Quit
 
 		case "e":
-			if v.wd.Move(fileview.Up).GetSelection().IsDir() {
+			if !v.wd.Empty() && v.wd.Move(fileview.Up).GetSelection().IsDir() {
 				v.cd = fileview.New(v.wd.GetSelectedPath(), v.fwWidth, v.fwHeight, v.cfg)
 				return v, v.cd.Init()
 			}
 			return v, nil
 
 		case "n":
-			if v.wd.Move(fileview.Down).GetSelection().IsDir() {
+			if !v.wd.Empty() && v.wd.Move(fileview.Down).GetSelection().IsDir() {
 				v.cd = fileview.New(v.wd.GetSelectedPath(), v.fwWidth, v.fwHeight, v.cfg)
 				return v, v.cd.Init()
 			}
@@ -122,7 +122,7 @@ func (v view) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return v, v.pd.Init()
 
 		case "i":
-			if !v.cd.IsFocusable() || !v.wd.GetSelection().IsDir() {
+			if !v.cd.IsFocusable() || v.wd.Empty() || !v.wd.GetSelection().IsDir() {
 				return v, nil
 			}
 			v.pd = v.wd
