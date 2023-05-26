@@ -117,7 +117,7 @@ func (v View) Update(msg tea.Msg) (View, tea.Cmd) {
 
 func (v View) View() string {
 	if v.err != nil { // check error first
-		return v.err.Error()
+		return lipgloss.NewStyle().Width(v.w).Render(v.err.Error())
 	}
 
 	files := v.dir.VisibleFiles()
