@@ -177,7 +177,7 @@ func (m *Model) Move(dir Direction) *Model {
 		fileCount := len(m.dir.VisibleFiles())
 		if m.cursorIndex < fileCount-1 {
 			m.cursorIndex++
-			if m.cursorIndex > m.h-1 {
+			if m.cursorIndex-m.offset > m.h-1 {
 				m.offset++
 			}
 		}

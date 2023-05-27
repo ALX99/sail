@@ -22,7 +22,7 @@ func SetupLogger() {
 
 	log.Logger = log.Output(zerolog.ConsoleWriter{
 		Out: f,
-		FormatCaller: func(i interface{}) string {
+		FormatCaller: func(i any) string {
 			return filepath.Base(fmt.Sprintf("%s", i))
 		},
 	}).
