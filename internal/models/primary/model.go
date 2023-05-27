@@ -7,6 +7,7 @@ import (
 	"github.com/alx99/fly/internal/config"
 	"github.com/alx99/fly/internal/models/directory"
 	"github.com/alx99/fly/internal/models/input"
+	"github.com/alx99/fly/internal/models/preview"
 	"github.com/alx99/fly/internal/util"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -14,10 +15,11 @@ import (
 )
 
 type model struct {
-	pd directory.Model // parent directory
-	wd directory.Model // working directory
-	cd directory.Model // child directory
-	im input.Model
+	pd      directory.Model // parent directory
+	wd      directory.Model // working directory
+	cd      directory.Model // child directory
+	preview preview.Model
+	im      input.Model
 
 	h, w     int
 	fwWidth  int
@@ -70,8 +72,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		log.Debug().
 			Int("height", msg.Height).
-			Int("Width", msg.Width).
-			Msg("Terminal size updated")
+			Int("width", msg.Width).
+			Msg("terminal size updated")
 
 	case tea.KeyMsg:
 		newIV, cmd := m.im.Update(msg)
@@ -97,6 +99,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if !m.wd.Empty() && m.wd.Move(directory.Up).GetSelection().IsDir() {
 				m.cd = directory.New(m.wd.GetSelectedPath(), m.fwWidth, m.fwHeight, m.cfg)
 				return m, m.cd.Init()
+			} else if !m.wd.GetSelection().IsDir() {
+				m.preview = preview.New(m.wd.GetSelectedPath(), m.fwWidth, m.h, m.cfg)
+				return m, m.preview.Init()
 			}
 			return m, nil
 
@@ -104,6 +109,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if !m.wd.Empty() && m.wd.Move(directory.Down).GetSelection().IsDir() {
 				m.cd = directory.New(m.wd.GetSelectedPath(), m.fwWidth, m.fwHeight, m.cfg)
 				return m, m.cd.Init()
+			} else if !m.wd.GetSelection().IsDir() {
+				m.preview = preview.New(m.wd.GetSelectedPath(), m.fwWidth, m.h, m.cfg)
+				return m, m.preview.Init()
 			}
 			return m, nil
 
@@ -140,13 +148,20 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	cmds = append(cmds, cmd)
 	m.cd, cmd = m.cd.Update(msg)
 	cmds = append(cmds, cmd)
+	m.preview, cmd = m.preview.Update(msg)
+	cmds = append(cmds, cmd)
 
 	return m, tea.Batch(cmds...)
 }
 
 func (m model) View() string {
 	res := make([]string, 3)
-	res = append(res, m.pd.View(), m.wd.View(), m.cd.View())
+	res = append(res, m.pd.View(), m.wd.View())
+	if m.wd.GetSelection().IsDir() {
+		res = append(res, m.cd.View())
+	} else if !m.wd.GetSelection().IsDir() {
+		res = append(res, m.preview.View())
+	}
 	if m.im.Focused() {
 		return lipgloss.JoinVertical(0, lipgloss.JoinHorizontal(lipgloss.Left, res...), m.im.View())
 	}
@@ -159,6 +174,7 @@ func (m *model) updateFWHeight(delta int) {
 	m.pd.SetSize(m.fwWidth, m.fwHeight)
 	m.wd.SetSize(m.fwWidth, m.fwHeight)
 	m.cd.SetSize(m.w-m.fwWidth*2, m.fwHeight)
+	m.preview.SetSize(m.w-m.fwWidth*2, m.fwHeight)
 }
 
 func (m model) logState() {

@@ -22,19 +22,12 @@ const (
 	Down
 )
 
-func (d Direction) String() string {
-	if d == Up {
-		return "up"
-	}
-	return "down"
-}
-
 var (
 	id ID = 0
 )
 
-type windowMsg struct {
-	msg interface{}
+type directoryMsg struct {
+	msg any
 	to  ID
 }
 
@@ -71,9 +64,9 @@ func (m Model) Init() tea.Cmd {
 			log.Err(err).
 				Str("path", m.path).
 				Msg("Failed to read directory")
-			return windowMsg{to: m.id, msg: err}
+			return directoryMsg{to: m.id, msg: err}
 		}
-		return windowMsg{to: m.id, msg: dir}
+		return directoryMsg{to: m.id, msg: dir}
 	}
 }
 
@@ -85,7 +78,7 @@ func (m *Model) Load() (err error) {
 
 func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 	switch msg := msg.(type) {
-	case windowMsg:
+	case directoryMsg:
 		// Make sure it is addressed to me
 		if msg.to != m.id {
 			break
@@ -186,8 +179,7 @@ func (m *Model) Move(dir Direction) *Model {
 	log.Debug().
 		Int("cursorIndex", m.cursorIndex).
 		Int("offset", m.offset).
-		Str("direction", dir.String()).
-		Str("fileName", m.dir.GetFileAtIndex(m.cursorIndex).GetDirEntry().Name()).
+		Str("file", m.dir.GetFileAtIndex(m.cursorIndex).GetDirEntry().Name()).
 		Msg("moved")
 
 	return m
@@ -219,12 +211,4 @@ func (m Model) GetSelectedPath() string {
 // Empty returns true if the directory is empty to the user
 func (m Model) Empty() bool {
 	return len(m.dir.VisibleFiles()) == 0
-}
-
-func (m Model) logState() {
-	log.Debug().
-		Str("path", m.path).
-		Int("h", m.h).
-		Int("w", m.w).
-		Send()
 }

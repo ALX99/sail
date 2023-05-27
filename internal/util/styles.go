@@ -165,7 +165,6 @@ func parseNums(s string) []int {
 func GetStyle(dirEntry fs.DirEntry) lipgloss.Style {
 	fInfo, err := dirEntry.Info()
 	if err != nil {
-		log.Log().Err(err).Str("fileName", dirEntry.Name()).Msg("Failed to obtain file information")
 		return lipgloss.NewStyle()
 	}
 
