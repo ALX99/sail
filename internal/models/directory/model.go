@@ -125,16 +125,18 @@ func (m Model) View() string {
 			Str("dir", m.path).
 			Msg("View render")
 	}()
-	if !m.loaded {
-		return "loading..."
-	}
+
 	style := lipgloss.NewStyle().Width(m.w)
 	if m.err != nil { // check error first
-		style = style.Foreground(lipgloss.Color("#ff0000"))
+		style = style.Foreground(lipgloss.Color("#ff0000")).Bold(true)
 		if os.IsNotExist(m.err) {
-			return style.Bold(true).Render("file/folder not found!")
+			return style.Render("file/folder not found!")
 		}
 		return style.Render(m.err.Error())
+	}
+
+	if !m.loaded {
+		return "loading..."
 	}
 
 	if m.dir.FileCount() == 0 {
