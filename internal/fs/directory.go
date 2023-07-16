@@ -3,6 +3,7 @@ package fs
 import (
 	"os"
 	"sort"
+	"strings"
 )
 
 type Directory struct {
@@ -16,20 +17,31 @@ func NewDirectory(path string) (Directory, error) {
 		return Directory{}, err
 	}
 
-	f := Directory{
+	dir := Directory{
 		fileCount: len(files),
 	}
-	f.files = make([]File, 0, f.fileCount)
+	dir.files = make([]File, 0, dir.fileCount)
 
 	for _, dEntry := range files {
-		f.files = append(f.files, newFile(dEntry))
+		dir.files = append(dir.files, newFile(dEntry))
 	}
 
-	sort.Slice(f.files, func(i, j int) bool {
-		return f.files[i].GetDirEntry().IsDir()
+	// Same sort order as ls
+	sort.Slice(dir.files, func(i, j int) bool {
+		// Directories come before files
+		if dir.files[i].GetDirEntry().IsDir() && !dir.files[j].GetDirEntry().IsDir() {
+			return true
+		} else if !dir.files[i].GetDirEntry().IsDir() && dir.files[j].GetDirEntry().IsDir() {
+			return false
+		}
+
+		nameI := strings.TrimPrefix(strings.ToLower(dir.files[i].GetDirEntry().Name()), ".")
+		nameJ := strings.TrimPrefix(strings.ToLower(dir.files[j].GetDirEntry().Name()), ".")
+		// Sort alphabetically within the same type (directories or files)
+		return nameI < nameJ
 	})
 
-	return f, nil
+	return dir, nil
 }
 
 func (d *Directory) Files() []File {
