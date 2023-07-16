@@ -5,10 +5,10 @@ import (
 	"os"
 
 	"github.com/alx99/fly/internal/config"
-	"github.com/alx99/fly/internal/fs"
 	"github.com/alx99/fly/internal/models/directory"
 	"github.com/alx99/fly/internal/models/input"
 	"github.com/alx99/fly/internal/models/preview"
+	"github.com/alx99/fly/internal/state"
 	"github.com/alx99/fly/internal/util"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -21,7 +21,7 @@ type model struct {
 	cd      directory.Model // child directory
 	preview preview.Model
 	im      input.Model
-	browser *fs.Browser
+	state   *state.State
 
 	h, w     int
 	fwWidth  int
@@ -30,34 +30,34 @@ type model struct {
 	cfg config.Config
 }
 
-func New(browser *fs.Browser, cfg config.Config) (model, error) {
+func New(state *state.State, cfg config.Config) (model, error) {
 	home, ok := os.LookupEnv("HOME")
 	if !ok {
 		return model{}, errors.New("$HOME not set")
 	}
 	m := model{
-		browser: browser,
-		pd:      directory.New(util.GetParentPath(home), browser, 0, 0, cfg),
-		cfg:     cfg,
-		im:      input.New(),
+		state: state,
+		pd:    directory.New(util.GetParentPath(home), state, 0, 0, cfg),
+		cfg:   cfg,
+		im:    input.New(),
 	}
 
-	m.wd = directory.New(home, browser, 0, 0, cfg)
+	m.wd = directory.New(home, state, 0, 0, cfg)
 	if err := m.wd.Load(); err != nil {
 		return m, err
 	}
 
 	if !m.wd.Empty() && m.wd.GetSelection().IsDir() {
-		m.cd = directory.New(m.wd.GetSelectedPath(), browser, 0, 0, cfg)
+		m.cd = directory.New(m.wd.GetSelectedPath(), state, 0, 0, cfg)
 	} else {
-		m.cd = directory.New("", browser, 0, 0, cfg)
+		m.cd = directory.New("", state, 0, 0, cfg)
 	}
 
 	return m, nil
 }
 
 func (m model) Init() tea.Cmd {
-	return tea.Batch(m.cd.Init(), m.pd.Init())
+	return tea.Batch(m.cd.Init(), m.wd.Init(), m.pd.Init())
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -100,7 +100,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case "e":
 			if !m.wd.Empty() && m.wd.Move(directory.Up).GetSelection().IsDir() {
-				m.cd = directory.New(m.wd.GetSelectedPath(), m.browser, m.fwWidth, m.fwHeight, m.cfg)
+				m.cd = directory.New(m.wd.GetSelectedPath(), m.state, m.fwWidth, m.fwHeight, m.cfg)
 				return m, m.cd.Init()
 			} else if !m.wd.GetSelection().IsDir() {
 				m.preview = preview.New(m.wd.GetSelectedPath(), m.fwWidth, m.h, m.cfg)
@@ -110,7 +110,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case "n":
 			if !m.wd.Empty() && m.wd.Move(directory.Down).GetSelection().IsDir() {
-				m.cd = directory.New(m.wd.GetSelectedPath(), m.browser, m.fwWidth, m.fwHeight, m.cfg)
+				m.cd = directory.New(m.wd.GetSelectedPath(), m.state, m.fwWidth, m.fwHeight, m.cfg)
 				return m, m.cd.Init()
 			} else if !m.wd.GetSelection().IsDir() {
 				m.preview = preview.New(m.wd.GetSelectedPath(), m.fwWidth, m.h, m.cfg)
@@ -126,9 +126,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.cd = m.wd
 			m.wd = m.pd
 			if m.pd.GetPath() == "/" {
-				m.pd = directory.New("", m.browser, m.w/3, m.h, m.cfg)
+				m.pd = directory.New("", m.state, m.w/3, m.h, m.cfg)
 			} else {
-				m.pd = directory.New(util.GetParentPath(m.pd.GetPath()), m.browser, m.w/3, m.h, m.cfg)
+				m.pd = directory.New(util.GetParentPath(m.pd.GetPath()), m.state, m.w/3, m.h, m.cfg)
 			}
 			return m, m.pd.Init()
 
@@ -138,7 +138,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			m.pd = m.wd
 			m.wd = m.cd
-			m.cd = directory.New(m.wd.GetSelectedPath(), m.browser, m.w/3, m.h, m.cfg)
+			m.cd = directory.New(m.wd.GetSelectedPath(), m.state, m.w/3, m.h, m.cfg)
 			return m, m.cd.Init()
 
 		case ".":
