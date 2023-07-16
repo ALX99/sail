@@ -4,12 +4,14 @@ import (
 	"os"
 	"path"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	fss "io/fs"
 
 	"github.com/alx99/fly/internal/config"
 	"github.com/alx99/fly/internal/fs"
+	"github.com/alx99/fly/internal/msgs"
 	"github.com/alx99/fly/internal/state"
 	"github.com/alx99/fly/internal/util"
 	tea "github.com/charmbracelet/bubbletea"
@@ -18,7 +20,6 @@ import (
 )
 
 type Direction uint8
-type ID uint32
 
 const (
 	Up Direction = iota
@@ -26,13 +27,8 @@ const (
 )
 
 var (
-	id ID = 0
+	uniqueID atomic.Uint32
 )
-
-type directoryMsg struct {
-	msg any
-	to  ID
-}
 
 type Model struct {
 	state *state.State
@@ -40,31 +36,34 @@ type Model struct {
 	dir   fs.Directory
 	err   error
 
-	id          ID
-	h, w        int
+	h, w int
+
+	// State
 	offset      int
 	cursorIndex int
-	loaded      bool
+	id          uint32
 
 	// Configurable settings
 	scrollPadding int
 }
 
 func New(path string, state *state.State, width, height int, cfg config.Config) Model {
-	id++
-
 	return Model{
 		state:         state,
-		id:            id,
 		path:          path,
 		scrollPadding: cfg.Settings.ScrollPadding,
 		w:             width,
 		h:             height,
+		id:            uniqueID.Add(1),
 	}
 }
 
 func (m Model) Init() tea.Cmd {
-	return cmdRead(m)
+	return m.cmdRead("")
+}
+
+func (m Model) InitAndSelect(name string) tea.Cmd {
+	return m.cmdRead(name)
 }
 
 // Load loads the directory instantly
@@ -75,31 +74,35 @@ func (m *Model) Load() (err error) {
 
 func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 	switch msg := msg.(type) {
-	case directoryMsg:
+	case msgs.MsgDirLoaded:
 		// Make sure it is addressed to me
-		if msg.to != m.id {
+		if msg.To != m.id {
 			break
 		}
 
-		switch msg := msg.msg.(type) {
-		case fs.Directory:
-			// TODO if a file/folder is deleted above the currently
-			// selected one, the cursorIndex needs to decrease by one
-			// or however many were deleted
+		// TODO if a file/folder is deleted above the currently
+		// selected one, the cursorIndex needs to decrease by one
+		// or however many were deleted
 
-			// Ensure that the cursorIndex does not exceed the
-			// amount of selectable files
-			if m.cursorIndex >= msg.FileCount() {
-				m.cursorIndex = msg.FileCount() - 1
-			}
-			m.dir = msg
-			m.err = nil
-			return m, cmdTickRead(m)
-
-		case error:
-			m.err = msg
-			return m, nil // Stop ticking in this case
+		// Ensure that the cursorIndex does not exceed the
+		// amount of selectable files
+		if m.cursorIndex >= msg.Dir.FileCount() {
+			m.cursorIndex = msg.Dir.FileCount() - 1
 		}
+		m.dir = msg.Dir
+		m.err = nil
+		if msg.Select != "" {
+			m.SetSelectedFile(msg.Select)
+		}
+		return m, m.cmdTickRead()
+
+	case msgs.MsgDirError:
+		// Make sure it is addressed to me
+		if msg.To != m.id {
+			break
+		}
+		m.err = msg.Err
+		return m, nil
 
 	case tea.KeyMsg:
 		switch kp := msg.String(); kp {
@@ -109,12 +112,28 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 	return m, nil
 }
 
+func (m *Model) SetSelectedFile(name string) {
+	for i, file := range m.dir.Files() {
+		if file.GetDirEntry().Name() == name {
+			m.cursorIndex = i
+			break
+		}
+	}
+}
+
 func (m Model) View() string {
+	t := time.Now()
+	defer func() {
+		log.Trace().
+			Str("dur", time.Since(t).String()).
+			Str("dir", m.path).
+			Msg("View render")
+	}()
 	style := lipgloss.NewStyle().Width(m.w)
 	if m.err != nil { // check error first
 		style = style.Foreground(lipgloss.Color("#ff0000"))
 		if os.IsNotExist(m.err) {
-			return style.Bold(true).Render("error file/folder not found!")
+			return style.Bold(true).Render("file/folder not found!")
 		}
 		return style.Render(m.err.Error())
 	}
@@ -191,13 +210,12 @@ func (m *Model) Move(dir Direction) *Model {
 		}
 	}
 
-	log.Debug().
-		Int("cursorIndex", m.cursorIndex).
+	log.Trace().
+		Int("i", m.cursorIndex).
 		Int("offset", m.offset).
-		Str("path", m.path).
+		Str("file", path.Join(m.path, m.dir.GetFileAtIndex(m.cursorIndex).GetDirEntry().Name())).
 		Int("fCount", m.dir.FileCount()).
-		Str("file", m.dir.GetFileAtIndex(m.cursorIndex).GetDirEntry().Name()).
-		Msg("moved")
+		Msg("cusor moved")
 
 	return m
 }
@@ -231,22 +249,32 @@ func (m Model) Empty() bool {
 }
 
 // cmdRead reads the current directory
-func cmdRead(m Model) tea.Cmd {
+func (m Model) cmdRead(selectName string) tea.Cmd {
+	log.Trace().Msgf("Loading directory %q", m.path)
 	return func() tea.Msg {
 		dir, err := fs.NewDirectory(m.path)
 		if err != nil {
 			log.Err(err).
 				Str("path", m.path).
 				Msg("Failed to read directory")
-			return directoryMsg{to: m.id, msg: err}
+			return msgs.MsgDirError{
+				To:   m.id,
+				Path: m.path,
+				Err:  err,
+			}
 		}
-		return directoryMsg{to: m.id, msg: dir}
+		return msgs.MsgDirLoaded{
+			To:     m.id,
+			Path:   m.path,
+			Dir:    dir,
+			Select: selectName,
+		}
 	}
 }
 
 // cmdTickRead sleeps one second before calling cmdRead
-func cmdTickRead(m Model) tea.Cmd {
-	return tea.Tick(time.Second, func(_ time.Time) tea.Msg {
-		return cmdRead(m)()
+func (m Model) cmdTickRead() tea.Cmd {
+	return tea.Tick(5*time.Second, func(_ time.Time) tea.Msg {
+		return m.cmdRead("")()
 	})
 }
