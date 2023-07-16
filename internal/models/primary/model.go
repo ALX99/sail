@@ -133,7 +133,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, m.pd.Init()
 
 		case "i":
-			if !m.cd.IsFocusable() || m.wd.Empty() || !m.wd.GetSelection().IsDir() {
+			if !m.cd.IsFocusable() || m.cd.Empty() || !m.wd.GetSelection().IsDir() {
 				return m, nil
 			}
 			m.pd = m.wd
