@@ -166,7 +166,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			m.pd = m.wd
 			m.wd = m.cd
-			m.cd = directory.New(m.wd.GetSelectedPath(), m.state, m.w/3, m.h, m.cfg)
+			if m.wd.GetSelection().IsDir() {
+				m.cd = directory.New(m.wd.GetSelectedPath(), m.state, m.w/3, m.h, m.cfg)
+			}
 			return m, m.cd.Init()
 
 		case ".":
