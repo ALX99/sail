@@ -13,7 +13,8 @@ type Config struct {
 }
 
 type Settings struct {
-	ScrollPadding int `yaml:"scrollPadding"`
+	ScrollPadding   int  `yaml:"scrollPadding"`
+	ShowHiddenFiles bool `yaml:"showHiddenFiles"`
 }
 
 // GetConfig reads, pareses and returns the configuration

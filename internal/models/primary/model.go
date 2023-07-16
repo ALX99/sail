@@ -137,6 +137,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.wd = m.cd
 			m.cd = directory.New(m.wd.GetSelectedPath(), m.w/3, m.h, m.cfg)
 			return m, m.cd.Init()
+
+		case ".":
+			// TODO hidden files
+			return m, nil
 		}
 	}
 

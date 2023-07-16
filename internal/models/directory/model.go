@@ -96,12 +96,6 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 
 	case tea.KeyMsg:
 		switch kp := msg.String(); kp {
-		case ".":
-			m.dir.ToggleShowHiddenFiles()
-			// TODO better logic
-			m.offset = 0
-			m.cursorIndex = 0
-			return m, nil
 		}
 	}
 
@@ -113,16 +107,18 @@ func (m Model) View() string {
 		return lipgloss.NewStyle().Width(m.w).Render(m.err.Error())
 	}
 
-	files := m.dir.VisibleFiles()
 	var nameBuilder strings.Builder
-	names := make([]string, 0, len(files))
+	skipped := 0
+	files := m.dir.Files()
+	names := make([]string, 0, m.dir.FileCount())
 
-	for i := m.offset; i < len(files); i++ {
-		if i-m.offset == m.h {
+	for i := m.offset; i < m.dir.FileCount(); i++ {
+		if i-m.offset-skipped == m.h {
 			break
 		}
 
 		file := files[i]
+
 		charsWritten := 0
 		if i == m.cursorIndex {
 			nameBuilder.WriteString("> ")
@@ -162,17 +158,21 @@ func (m *Model) Move(dir Direction) *Model {
 	if dir == Up {
 		if m.cursorIndex >= 1 {
 			m.cursorIndex--
-			if m.cursorIndex < m.offset {
-				m.offset--
-			}
 		}
 	} else {
-		fileCount := len(m.dir.VisibleFiles())
-		if m.cursorIndex < fileCount-1 {
+		if m.cursorIndex < m.dir.FileCount()-1 {
 			m.cursorIndex++
-			if m.cursorIndex-m.offset > m.h-1 {
-				m.offset++
-			}
+		}
+	}
+
+	if m.cursorIndex < m.offset {
+		m.offset--
+	} else {
+		skipped := 0
+
+		if m.cursorIndex-m.offset-skipped >= m.h {
+			// roof hit
+			m.offset++
 		}
 	}
 
@@ -210,5 +210,5 @@ func (m Model) GetSelectedPath() string {
 
 // Empty returns true if the directory is empty to the user
 func (m Model) Empty() bool {
-	return len(m.dir.VisibleFiles()) == 0
+	return m.dir.FileCount() == 0
 }
