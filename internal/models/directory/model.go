@@ -32,9 +32,10 @@ type directoryMsg struct {
 }
 
 type Model struct {
-	path string
-	dir  fs.Directory
-	err  error
+	browser *fs.Browser
+	path    string
+	dir     fs.Directory
+	err     error
 
 	id          ID
 	h, w        int
@@ -45,10 +46,11 @@ type Model struct {
 	scrollPadding int
 }
 
-func New(path string, width, height int, cfg config.Config) Model {
+func New(path string, browser *fs.Browser, width, height int, cfg config.Config) Model {
 	id++
 
 	return Model{
+		browser:       browser,
 		id:            id,
 		path:          path,
 		scrollPadding: cfg.Settings.ScrollPadding,
@@ -72,7 +74,7 @@ func (m Model) Init() tea.Cmd {
 
 // Load loads the directory instantly
 func (m *Model) Load() (err error) {
-	m.dir, err = fs.NewDirectory(m.path)
+	m.dir, err = m.browser.Load(m.path)
 	return
 }
 
