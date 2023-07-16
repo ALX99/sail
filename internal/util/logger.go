@@ -25,6 +25,7 @@ func SetupLogger() {
 		FormatCaller: func(i any) string {
 			return filepath.Base(fmt.Sprintf("%s", i))
 		},
+		TimeFormat: "15:04:05.999",
 	}).
 		With().
 		Caller().
@@ -32,6 +33,8 @@ func SetupLogger() {
 	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
 
 	switch strings.ToLower("debug") {
+	case "trace":
+		zerolog.SetGlobalLevel(zerolog.TraceLevel)
 	case "debug":
 		zerolog.SetGlobalLevel(zerolog.DebugLevel)
 	case "warn":

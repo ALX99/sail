@@ -75,7 +75,10 @@ func (m Model) Init() tea.Cmd {
 				err: err,
 			}
 		}
-		log.Debug().Str("path", m.path).Dur("dur", time.Since(t)).Msg("File read")
+		log.Trace().
+			Str("path", m.path).
+			Str("dur", time.Since(t).String()).
+			Msg("File read")
 
 		contentType := http.DetectContentType(buf)
 		if strings.HasPrefix(contentType, "text/plain;") {
@@ -103,11 +106,10 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 func (m Model) View() string {
 	t := time.Now()
 	defer func() {
-		defer log.Debug().
-			Dur("dur", time.Since(t)).
+		log.Trace().
+			Str("dur", time.Since(t).String()).
 			Str("file", m.path).
-			Str("model", "preview").
-			Msg("view")
+			Msg("View render")
 	}()
 	style := lipgloss.NewStyle().Width(m.w).MaxHeight(m.h)
 	if m.err != nil {
