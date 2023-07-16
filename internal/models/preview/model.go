@@ -1,6 +1,8 @@
 package preview
 
 import (
+	"fmt"
+	"net/http"
 	"os"
 	"strings"
 	"time"
@@ -57,17 +59,33 @@ func (m Model) Init() tea.Cmd {
 		}*/
 
 	return func() tea.Msg {
-		if strings.Contains(m.path, "backup") {
-			return nil
-		}
-		stdout, err := os.ReadFile(m.path)
+		file, err := os.Open(m.path)
 		if err != nil {
 			return cmdCompletionMsg{
 				err: err,
 			}
 		}
-		return cmdCompletionMsg{
-			stdout: string(stdout),
+		defer file.Close()
+
+		buf := make([]byte, 1024)
+		t := time.Now()
+		n, err := file.Read(buf)
+		if err != nil {
+			return cmdCompletionMsg{
+				err: err,
+			}
+		}
+		log.Debug().Str("path", m.path).Dur("dur", time.Since(t)).Msg("File read")
+
+		contentType := http.DetectContentType(buf)
+		if strings.HasPrefix(contentType, "text/plain;") {
+			return cmdCompletionMsg{
+				stdout: string(buf[:n]),
+			}
+		} else {
+			return cmdCompletionMsg{
+				err: fmt.Errorf("unsupported content type %q", contentType),
+			}
 		}
 	}
 }
@@ -86,10 +104,10 @@ func (m Model) View() string {
 	t := time.Now()
 	defer func() {
 		defer log.Debug().
-			Dur("renderDur", time.Since(t)).
+			Dur("dur", time.Since(t)).
 			Str("file", m.path).
 			Str("model", "preview").
-      Msg("view")
+			Msg("view")
 	}()
 	style := lipgloss.NewStyle().Width(m.w).MaxHeight(m.h)
 	if m.err != nil {
@@ -98,8 +116,10 @@ func (m Model) View() string {
 	if m.stderr != "" {
 		return style.Render(m.stderr)
 	}
-
-	return style.Render(m.stdout)
+	if m.stdout != "" {
+		return style.Render(m.stdout)
+	}
+	return style.Render("loading")
 }
 
 // SetSize sets the max allowed size of the window
