@@ -1,7 +1,6 @@
 package primary
 
 import (
-	"errors"
 	"os"
 	"path"
 
@@ -34,15 +33,15 @@ type model struct {
 }
 
 func New(state *state.State, cfg config.Config) (model, error) {
-	home, ok := os.LookupEnv("HOME")
-	if !ok {
-		return model{}, errors.New("$HOME not set")
+	dir, err := os.Getwd()
+	if err != nil {
+		return model{}, nil
 	}
 	m := model{
 		state:     state,
 		cfg:       cfg,
 		im:        input.New(),
-		wd:        directory.New(home, state, 0, 0, cfg),
+		wd:        directory.New(dir, state, 0, 0, cfg),
 		firstLoad: true,
 	}
 
