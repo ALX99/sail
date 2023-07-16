@@ -4,7 +4,6 @@ import (
 	"errors"
 	"os"
 	"path"
-	"strings"
 
 	"github.com/alx99/fly/internal/config"
 	"github.com/alx99/fly/internal/models/directory"
@@ -26,9 +25,10 @@ type model struct {
 	im      input.Model
 	state   *state.State
 
-	h, w     int
-	fwWidth  int
-	fwHeight int
+	// State
+	h, w              int
+	fwWidth, fwHeight int
+	firstLoad         bool
 
 	cfg config.Config
 }
@@ -39,39 +39,44 @@ func New(state *state.State, cfg config.Config) (model, error) {
 		return model{}, errors.New("$HOME not set")
 	}
 	m := model{
-		state: state,
-		cfg:   cfg,
-		im:    input.New(),
-	}
-
-	m.wd = directory.New(home, state, 0, 0, cfg)
-	if err := m.wd.Load(); err != nil {
-		return m, err
-	}
-
-	m.pd = directory.New(util.GetParentPath(home), state, 0, 0, cfg)
-	if err := m.pd.Load(); err != nil {
-		return m, err
-	}
-
-	m.pd.SetSelectedFile(strings.TrimPrefix(m.wd.GetPath(), m.pd.GetPath()+"/"))
-
-	if !m.wd.Empty() && m.wd.GetSelection().IsDir() {
-		m.cd = directory.New(m.wd.GetSelectedPath(), state, 0, 0, cfg)
-	} else {
-		m.cd = directory.New("", state, 0, 0, cfg)
+		state:     state,
+		cfg:       cfg,
+		im:        input.New(),
+		wd:        directory.New(home, state, 0, 0, cfg),
+		firstLoad: true,
 	}
 
 	return m, nil
 }
 
 func (m model) Init() tea.Cmd {
-	return tea.Batch(m.cd.Init(), m.wd.Init(), m.pd.Init())
+	return m.wd.Init() // wd needs to initialized before pd and cd
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case msgs.MsgDirLoaded, msgs.MsgDirError:
+		// First-load addressed to wd
+		if msg, ok := msg.(msgs.MsgDirLoaded); ok && m.firstLoad && msg.Path == m.wd.GetPath() {
+			m.firstLoad = false
+			var cmd tea.Cmd
+
+			m.wd, cmd = m.wd.Update(msg)
+
+			// Create pd
+			m.pd = directory.New(util.GetParentPath(msg.Path), m.state, m.w/3, m.h, m.cfg)
+
+			// Create cd
+			if !m.wd.Empty() && m.wd.GetSelection().IsDir() {
+				m.cd = directory.New(m.wd.GetSelectedPath(), m.state, m.w/3, m.h, m.cfg)
+			} else {
+				m.cd = directory.New("", m.state, m.w/3, m.h, m.cfg)
+			}
+
+			// Initialize cd and pd
+			return m, tea.Batch(m.pd.InitAndSelect(path.Base(m.wd.GetPath())), m.cd.Init(), cmd)
+		}
+
 		cmds := []tea.Cmd{}
 		var cmd tea.Cmd
 		m.pd, cmd = m.pd.Update(msg)
@@ -185,6 +190,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m model) View() string {
+	if m.firstLoad {
+		return "loading..."
+	}
 	res := make([]string, 3)
 	res = append(res, m.pd.View(), m.wd.View())
 	if m.wd.GetSelection().IsDir() {

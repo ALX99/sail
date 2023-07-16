@@ -42,6 +42,7 @@ type Model struct {
 	offset      int
 	cursorIndex int
 	id          uint32
+	loaded      bool
 
 	// Configurable settings
 	scrollPadding int
@@ -66,12 +67,6 @@ func (m Model) InitAndSelect(name string) tea.Cmd {
 	return m.cmdRead(name)
 }
 
-// Load loads the directory instantly
-func (m *Model) Load() (err error) {
-	m.dir, err = fs.NewDirectory(m.path)
-	return
-}
-
 func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case msgs.MsgDirLoaded:
@@ -94,6 +89,7 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 		if msg.Select != "" {
 			m.SetSelectedFile(msg.Select)
 		}
+		m.loaded = true
 		return m, m.cmdTickRead()
 
 	case msgs.MsgDirError:
@@ -129,6 +125,9 @@ func (m Model) View() string {
 			Str("dir", m.path).
 			Msg("View render")
 	}()
+	if !m.loaded {
+		return "loading..."
+	}
 	style := lipgloss.NewStyle().Width(m.w)
 	if m.err != nil { // check error first
 		style = style.Foreground(lipgloss.Color("#ff0000"))
