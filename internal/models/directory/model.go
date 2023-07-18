@@ -87,7 +87,7 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 		m.dir = msg.Dir
 		m.err = nil
 		if msg.Select != "" {
-			m.SetSelectedFile(msg.Select)
+			m.setSelectedFile(msg.Select)
 		}
 		m.loaded = true
 		return m, m.cmdTickRead()
@@ -108,12 +108,17 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 	return m, nil
 }
 
-func (m *Model) SetSelectedFile(name string) {
+func (m *Model) setSelectedFile(name string) {
 	for i, file := range m.dir.Files() {
 		if file.GetDirEntry().Name() == name {
 			m.cursorIndex = i
 			break
 		}
+	}
+
+	// In case the index becomes out of view
+	if m.cursorIndex > m.h-m.scrollPadding {
+		m.offset = m.cursorIndex - m.scrollPadding
 	}
 }
 
