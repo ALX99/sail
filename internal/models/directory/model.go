@@ -173,7 +173,10 @@ func (m Model) View() string {
 		}
 		charsWritten += len(name)
 
-		nameBuilder.WriteString(util.GetStyle(selectedFile).Render(name))
+		nameBuilder.WriteString(
+			util.GetStyle(selectedFile).
+				Underline(m.state.IsSelected(path.Join(m.path, selectedFile.Name()))).
+				Render(name))
 
 		if charsWritten+1 <= m.w && selectedFile.IsDir() {
 			nameBuilder.WriteString("/")

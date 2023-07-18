@@ -204,8 +204,8 @@ func GetStyle(dirEntry fs.DirEntry) lipgloss.Style {
 		k = "*" + filepath.Ext(dirEntry.Name()) // Try to match against *.pattern
 	}
 
-	if v, ok := styles[k]; ok {
-		return v
+	if s, ok := styles[k]; ok {
+		return s
 	}
 
 	return lipgloss.NewStyle()

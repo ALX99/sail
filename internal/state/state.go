@@ -1,15 +1,26 @@
 package state
 
 type State struct {
-	markedFiles map[string]any
+	selectedFiles map[string]any
 }
 
 func NewState() *State {
 	return &State{
-		markedFiles: map[string]any{},
+		selectedFiles: map[string]any{},
 	}
 }
 
-// Select a file or directory
-func (n *State) Select(path string) {
+// ToggleSelect toggles the selection of a file or directory
+func (s *State) ToggleSelect(path string) {
+	if _, ok := s.selectedFiles[path]; ok {
+		delete(s.selectedFiles, path)
+	} else {
+		s.selectedFiles[path] = true
+	}
+}
+
+// IsSelected returns true if a file or folder is selected
+func (s *State) IsSelected(path string) bool {
+	_, ok := s.selectedFiles[path]
+	return ok
 }

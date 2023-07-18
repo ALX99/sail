@@ -125,24 +125,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 
 		case "e":
-			if !m.wd.Empty() && m.wd.Move(directory.Up).GetSelection().IsDir() {
-				m.cd = directory.New(m.wd.GetSelectedPath(), m.state, m.fwWidth, m.fwHeight, m.cfg)
-				return m, m.cd.Init()
-			} else if !m.wd.GetSelection().IsDir() {
-				m.preview = preview.New(m.wd.GetSelectedPath(), m.fwWidth, m.h, m.cfg)
-				return m, m.preview.Init()
-			}
-			return m, nil
+			return m, m.moveUp()
 
 		case "n":
-			if !m.wd.Empty() && m.wd.Move(directory.Down).GetSelection().IsDir() {
-				m.cd = directory.New(m.wd.GetSelectedPath(), m.state, m.fwWidth, m.fwHeight, m.cfg)
-				return m, m.cd.Init()
-			} else if !m.wd.GetSelection().IsDir() {
-				m.preview = preview.New(m.wd.GetSelectedPath(), m.fwWidth, m.h, m.cfg)
-				return m, m.preview.Init()
-			}
-			return m, nil
+			return m, m.moveDown()
 
 		case "m":
 			if !m.pd.IsFocusable() {
@@ -170,6 +156,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return m, m.cd.Init()
 
+		case " ":
+			m.state.ToggleSelect(m.wd.GetSelectedPath())
+			return m, m.moveDown()
+
 		case ".":
 			// TODO hidden files
 			return m, nil
@@ -188,6 +178,30 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	cmds = append(cmds, cmd)
 
 	return m, tea.Batch(cmds...)
+}
+
+// moveDown navigates downwards in the working directory
+func (m *model) moveDown() tea.Cmd {
+	if !m.wd.Empty() && m.wd.Move(directory.Down).GetSelection().IsDir() {
+		m.cd = directory.New(m.wd.GetSelectedPath(), m.state, m.fwWidth, m.fwHeight, m.cfg)
+		return m.cd.Init()
+	} else if !m.wd.GetSelection().IsDir() {
+		m.preview = preview.New(m.wd.GetSelectedPath(), m.fwWidth, m.h, m.cfg)
+		return m.preview.Init()
+	}
+	return nil
+}
+
+// moveUp navigates upwards in the working directory
+func (m *model) moveUp() tea.Cmd {
+	if !m.wd.Empty() && m.wd.Move(directory.Up).GetSelection().IsDir() {
+		m.cd = directory.New(m.wd.GetSelectedPath(), m.state, m.fwWidth, m.fwHeight, m.cfg)
+		return m.cd.Init()
+	} else if !m.wd.GetSelection().IsDir() {
+		m.preview = preview.New(m.wd.GetSelectedPath(), m.fwWidth, m.h, m.cfg)
+		return m.preview.Init()
+	}
+	return nil
 }
 
 func (m model) View() string {
