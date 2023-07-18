@@ -205,14 +205,12 @@ func (m *Model) Move(dir Direction) *Model {
 		}
 	}
 
-	if m.cursorIndex < m.offset {
+	// update the offset
+	if m.offset > 0 && m.cursorIndex < m.offset+m.scrollPadding {
 		m.offset--
 	} else {
-		skipped := 0
-
-		if m.cursorIndex-m.offset-skipped >= m.h {
-			// roof hit
-			m.offset++
+		if m.cursorIndex-m.offset >= m.h-m.scrollPadding {
+			m.offset = util.Min(m.dir.FileCount()-m.h, m.offset+1)
 		}
 	}
 
