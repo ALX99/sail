@@ -100,6 +100,9 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 		m.err = msg.Err
 		return m, nil
 
+	case msgs.MsgDirReload:
+		return m, m.cmdRead("")
+
 	case tea.KeyMsg:
 		switch kp := msg.String(); kp {
 		}

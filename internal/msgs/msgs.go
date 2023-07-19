@@ -13,3 +13,5 @@ type MsgDirError struct {
 	Path string
 	Err  error
 }
+type MsgDirReload struct {
+}

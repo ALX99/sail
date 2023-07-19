@@ -105,19 +105,19 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			Msg("terminal size updated")
 
 	case tea.KeyMsg:
-		newIV, cmd := m.im.Update(msg)
+		wasFocused := m.im.Focused()
+		var cmd tea.Cmd
+		m.im, cmd = m.im.Update(msg)
 		// focus changed
-		if m.im.Focused() != newIV.Focused() {
-			if newIV.Focused() {
+		if wasFocused != m.im.Focused() {
+			if m.im.Focused() {
 				m.updateFWHeight(-1)
 			} else {
 				m.updateFWHeight(1)
 			}
-		}
-
-		m.im = newIV
-		if m.im.Focused() {
-			return m, cmd // focus obtained, no need to propagate msg
+			return m, cmd // focus changed, no need to propagate msg
+		} else if m.im.Focused() {
+			return m, cmd // already focused, no need to propagate msg
 		}
 
 		switch kp := msg.String(); kp {
@@ -160,6 +160,19 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.state.ToggleSelect(m.wd.GetSelectedPath())
 			return m, m.moveDown()
 
+		case "d":
+			if !m.state.HasSelectedFiles() {
+				return m, nil
+			}
+
+			return m, func() tea.Msg {
+				err := m.state.DeleteSelectedFiles()
+				if err != nil {
+					log.Err(err).Send()
+				}
+				return msgs.MsgDirReload{}
+			}
+
 		case ".":
 			// TODO hidden files
 			return m, nil
@@ -182,7 +195,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 // moveDown navigates downwards in the working directory
 func (m *model) moveDown() tea.Cmd {
-	if !m.wd.Empty() && m.wd.Move(directory.Down).GetSelection().IsDir() {
+	if m.wd.Move(directory.Down).GetSelection().IsDir() {
 		m.cd = directory.New(m.wd.GetSelectedPath(), m.state, m.fwWidth, m.fwHeight, m.cfg)
 		return m.cd.Init()
 	} else if !m.wd.GetSelection().IsDir() {
@@ -194,7 +207,7 @@ func (m *model) moveDown() tea.Cmd {
 
 // moveUp navigates upwards in the working directory
 func (m *model) moveUp() tea.Cmd {
-	if !m.wd.Empty() && m.wd.Move(directory.Up).GetSelection().IsDir() {
+	if m.wd.Move(directory.Up).GetSelection().IsDir() {
 		m.cd = directory.New(m.wd.GetSelectedPath(), m.state, m.fwWidth, m.fwHeight, m.cfg)
 		return m.cd.Init()
 	} else if !m.wd.GetSelection().IsDir() {
