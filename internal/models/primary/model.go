@@ -216,7 +216,10 @@ func (m model) View() string {
 		res = append(res, m.preview.View())
 	}
 	if m.im.Focused() {
-		return lipgloss.JoinVertical(0, lipgloss.JoinHorizontal(lipgloss.Left, res...), m.im.View())
+		return lipgloss.JoinVertical(lipgloss.Top,
+			lipgloss.NewStyle().Height(m.h-1).Render(
+				lipgloss.JoinHorizontal(lipgloss.Left, res...)),
+			m.im.View())
 	}
 	return lipgloss.JoinHorizontal(lipgloss.Left, res...)
 }
