@@ -1,6 +1,10 @@
 package state
 
-import "os"
+import (
+	"os"
+
+	"github.com/rs/zerolog/log"
+)
 
 type State struct {
 	selectedFiles map[string]bool
@@ -39,6 +43,7 @@ func (s *State) DeleteSelectedFiles() error {
 		if err = os.RemoveAll(path); err != nil {
 			break
 		}
+		log.Debug().Str("path", path).Msg("Deleted")
 		s.selectedFiles[path] = true
 	}
 
