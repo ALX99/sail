@@ -124,13 +124,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "ctrl+c", "q":
 			return m, tea.Quit
 
-		case "e":
+		case m.cfg.Settings.Keybinds.NavUp:
 			return m, m.moveUp()
 
-		case "n":
+		case m.cfg.Settings.Keybinds.NavDown:
 			return m, m.moveDown()
 
-		case "m":
+		case m.cfg.Settings.Keybinds.NavLeft:
 			if !m.pd.IsFocusable() {
 				return m, nil
 			}
@@ -145,7 +145,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 			return m, m.pd.InitAndSelect(path.Base(m.wd.GetPath()))
 
-		case "i":
+		case m.cfg.Settings.Keybinds.NavRight:
 			if !m.cd.IsFocusable() || m.cd.Empty() || !m.wd.GetSelection().IsDir() {
 				return m, nil
 			}
@@ -167,7 +167,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.state.ToggleSelect(m.wd.GetSelectedPath())
 			return m, m.moveDown()
 
-		case "d":
+		case m.cfg.Settings.Keybinds.Delete:
 			if !m.state.HasSelectedFiles() {
 				return m, nil
 			}
