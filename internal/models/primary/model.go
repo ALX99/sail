@@ -169,7 +169,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case m.cfg.Settings.Keybinds.Delete, m.cfg.Settings.Keybinds.Move:
 			if !m.state.HasSelectedFiles() {
-				return m, nil
+				m.state.ToggleSelect(m.wd.GetSelectedPath())
 			}
 
 			return m, func() tea.Msg {
