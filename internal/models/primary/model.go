@@ -153,7 +153,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.wd = m.cd
 			if m.wd.GetSelection().IsDir() {
 				m.cd = directory.New(m.wd.GetSelectedPath(), m.state, m.w/3, m.h, m.cfg)
+			} else {
+				// Note this is very much needed since otherwise
+				// m.wd and m.cd will have the same ID and will
+				// consume the same messages
+				m.cd = directory.Model{}
 			}
+
 			return m, m.cd.Init()
 
 		case " ":
