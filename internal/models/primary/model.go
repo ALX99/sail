@@ -10,7 +10,6 @@ import (
 	"github.com/alx99/fly/internal/models/preview"
 	"github.com/alx99/fly/internal/msgs"
 	"github.com/alx99/fly/internal/state"
-	"github.com/alx99/fly/internal/util"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/rs/zerolog/log"
@@ -63,13 +62,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.wd, cmd = m.wd.Update(msg)
 
 			// Create pd
-			m.pd = directory.New(util.GetParentPath(msg.Path), m.state, m.w/3, m.h, m.cfg)
+			m.pd = directory.New(path.Dir(msg.Path), m.state, m.fwWidth, m.fwHeight, m.cfg)
 
 			// Create cd
 			if !m.wd.Empty() && m.wd.GetSelection().IsDir() {
-				m.cd = directory.New(m.wd.GetSelectedPath(), m.state, m.w/3, m.h, m.cfg)
+				m.cd = directory.New(m.wd.GetSelectedPath(), m.state, m.fwWidth, m.fwHeight, m.cfg)
 			} else {
-				m.cd = directory.New("", m.state, m.w/3, m.h, m.cfg)
+				m.cd = directory.New("", m.state, m.fwWidth, m.fwHeight, m.cfg)
 			}
 
 			// Initialize cd and pd
@@ -138,9 +137,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.cd = m.wd
 			m.wd = m.pd
 			if m.pd.GetPath() == "/" {
-				m.pd = directory.New("", m.state, m.w/3, m.h, m.cfg)
+				m.pd = directory.New("", m.state, m.fwWidth, m.fwHeight, m.cfg)
 			} else {
-				m.pd = directory.New(util.GetParentPath(m.pd.GetPath()), m.state, m.w/3, m.h, m.cfg)
+				m.pd = directory.New(path.Dir(m.pd.GetPath()), m.state, m.fwWidth, m.fwHeight, m.cfg)
 			}
 
 			return m, m.pd.InitAndSelect(path.Base(m.wd.GetPath()))
@@ -152,14 +151,14 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.pd = m.wd
 			m.wd = m.cd
 			if m.wd.GetSelection().IsDir() {
-				m.cd = directory.New(m.wd.GetSelectedPath(), m.state, m.w/3, m.h, m.cfg)
+				m.cd = directory.New(m.wd.GetSelectedPath(), m.state, m.fwWidth, m.fwHeight, m.cfg)
 				return m, m.cd.Init()
 			} else {
 				// Note this is very much needed since otherwise
 				// m.wd and m.cd will have the same ID and will
 				// consume the same messages
 				m.cd = directory.Model{}
-				m.preview = preview.New(m.wd.GetSelectedPath(), m.fwWidth, m.h, m.cfg)
+				m.preview = preview.New(m.wd.GetSelectedPath(), m.fwWidth, m.fwHeight, m.cfg)
 				return m, m.preview.Init()
 			}
 
@@ -211,7 +210,7 @@ func (m *model) moveDown() tea.Cmd {
 		m.cd = directory.New(m.wd.GetSelectedPath(), m.state, m.fwWidth, m.fwHeight, m.cfg)
 		return m.cd.Init()
 	} else if !m.wd.GetSelection().IsDir() {
-		m.preview = preview.New(m.wd.GetSelectedPath(), m.fwWidth, m.h, m.cfg)
+		m.preview = preview.New(m.wd.GetSelectedPath(), m.fwWidth, m.fwHeight, m.cfg)
 		return m.preview.Init()
 	}
 	return nil
@@ -223,7 +222,7 @@ func (m *model) moveUp() tea.Cmd {
 		m.cd = directory.New(m.wd.GetSelectedPath(), m.state, m.fwWidth, m.fwHeight, m.cfg)
 		return m.cd.Init()
 	} else if !m.wd.GetSelection().IsDir() {
-		m.preview = preview.New(m.wd.GetSelectedPath(), m.fwWidth, m.h, m.cfg)
+		m.preview = preview.New(m.wd.GetSelectedPath(), m.fwWidth, m.fwHeight, m.cfg)
 		return m.preview.Init()
 	}
 	return nil
