@@ -23,6 +23,7 @@ type Keybinds struct {
 	NavLeft  string `yaml:"left"`
 	NavRight string `yaml:"right"`
 	Delete   string `yaml:"delete"`
+	Move     string `yaml:"move"`
 }
 
 // GetConfig reads, pareses and returns the configuration
@@ -42,6 +43,7 @@ func GetConfig() (Config, error) {
 						NavLeft:  "k",
 						NavRight: "l",
 						Delete:   "d",
+						Move:     "p",
 					},
 				},
 			}, nil

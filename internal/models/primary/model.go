@@ -167,13 +167,18 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.state.ToggleSelect(m.wd.GetSelectedPath())
 			return m, m.moveDown()
 
-		case m.cfg.Settings.Keybinds.Delete:
+		case m.cfg.Settings.Keybinds.Delete, m.cfg.Settings.Keybinds.Move:
 			if !m.state.HasSelectedFiles() {
 				return m, nil
 			}
 
 			return m, func() tea.Msg {
-				err := m.state.DeleteSelectedFiles()
+				var err error
+				if msg.String() == m.cfg.Settings.Keybinds.Delete {
+					err = m.state.DeleteSelectedFiles()
+				} else {
+					err = m.state.MoveSelectedFiles(m.wd.GetPath())
+				}
 				if err != nil {
 					log.Err(err).Send()
 				}

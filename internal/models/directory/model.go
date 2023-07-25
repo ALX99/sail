@@ -43,6 +43,7 @@ type Model struct {
 	cursorIndex int
 	id          uint32
 	loaded      bool
+	active      bool
 
 	// Configurable settings
 	scrollPadding int
@@ -56,6 +57,7 @@ func New(path string, state *state.State, width, height int, cfg config.Config) 
 		w:             width,
 		h:             height,
 		id:            uniqueID.Add(1),
+		active:        true,
 	}
 }
 
@@ -68,6 +70,9 @@ func (m Model) InitAndSelect(name string) tea.Cmd {
 }
 
 func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
+	if !m.active { // Only allow models created from the New function to be called
+		return m, nil
+	}
 	switch msg := msg.(type) {
 	case msgs.MsgDirLoaded:
 		// Make sure it is addressed to me

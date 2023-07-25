@@ -2,6 +2,7 @@ package state
 
 import (
 	"os"
+	"path"
 
 	"github.com/rs/zerolog/log"
 )
@@ -36,7 +37,7 @@ func (s *State) HasSelectedFiles() bool {
 	return len(s.selectedFiles) > 0
 }
 
-// DeletSelectedFiles deletes the selected files
+// DeleteSelectedFiles deletes the selected files
 func (s *State) DeleteSelectedFiles() error {
 	var err error
 	for path := range s.selectedFiles {
@@ -49,6 +50,28 @@ func (s *State) DeleteSelectedFiles() error {
 
 	for path, deleted := range s.selectedFiles {
 		if deleted {
+			delete(s.selectedFiles, path)
+		}
+	}
+
+	return err
+}
+
+// MoveSelectedFiles moves the selected files
+// to the specified directory
+func (s *State) MoveSelectedFiles(dirPath string) error {
+	var err error
+	for oldPath := range s.selectedFiles {
+		newPath := path.Join(dirPath, path.Base(oldPath))
+		if err = os.Rename(oldPath, newPath); err != nil {
+			break
+		}
+		log.Debug().Str("oldPath", oldPath).Str("newPath", newPath).Msg("Moved")
+		s.selectedFiles[oldPath] = true
+	}
+
+	for path, moved := range s.selectedFiles {
+		if moved {
 			delete(s.selectedFiles, path)
 		}
 	}
