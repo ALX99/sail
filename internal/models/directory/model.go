@@ -39,24 +39,27 @@ type Model struct {
 	h, w int
 
 	// State
-	offset      int
-	cursorIndex int
-	id          uint32
-	loaded      bool
-	active      bool
+	offset           int
+	cursorIndex      int
+	id               uint32
+	loaded           bool
+	active           bool
+	visibleFiles     []fs.File
+	visibleFileCount int
 
 	cfg config.Settings
 }
 
 func New(path string, state *state.State, width, height int, cfg config.Config) Model {
 	m := Model{
-		state:  state,
-		path:   path,
-		cfg:    cfg.Settings,
-		w:      width,
-		h:      height,
-		id:     uniqueID.Add(1),
-		active: true,
+		state:        state,
+		path:         path,
+	cfg:          cfg.Settings,
+		w:            width,
+		h:            height,
+		id:           uniqueID.Add(1),
+		visibleFiles: []fs.File{},
+		active:       true,
 	}
 	return m
 }
@@ -83,18 +86,15 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 		// TODO if a file/folder is deleted above the currently
 		// selected one, the cursorIndex needs to decrease by one
 		// or however many were deleted
-
-		// Ensure that the cursorIndex does not exceed the
-		// amount of selectable files
-		if m.cursorIndex >= msg.Dir.FileCount() {
-			m.cursorIndex = msg.Dir.FileCount() - 1
-		}
-		m.dir = msg.Dir
-		m.err = nil
+		m.loadDirectory(msg.Dir)
 		if msg.Select != "" {
-			m.setSelectedFile(msg.Select)
+			if m.cfg.ShowHiddenFiles {
+				m.setSelectedFile(msg.Select)
+			} else if msg.Select[0] != '.' { // only if not hidden
+				m.setSelectedFile(msg.Select)
+			}
 		}
-		m.loaded = true
+
 		return m, m.cmdTickRead()
 
 	case msgs.MsgDirError:
@@ -114,20 +114,6 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 	}
 
 	return m, nil
-}
-
-func (m *Model) setSelectedFile(name string) {
-	for i, file := range m.dir.Files() {
-		if file.GetDirEntry().Name() == name {
-			m.cursorIndex = i
-			break
-		}
-	}
-
-	// In case the index becomes out of view
-	if m.cursorIndex > m.h-m.cfg.ScrollPadding {
-		m.offset = m.cursorIndex - m.cfg.ScrollPadding
-	}
 }
 
 func (m Model) View() string {
@@ -152,21 +138,20 @@ func (m Model) View() string {
 		return style.Render("loading...")
 	}
 
-	if m.dir.FileCount() == 0 {
+	if m.visibleFileCount == 0 {
 		return style.Render("empty")
 	}
 
 	var nameBuilder strings.Builder
 	skipped := 0
-	files := m.dir.Files()
-	names := make([]string, 0, m.dir.FileCount())
+	names := make([]string, 0, m.visibleFileCount)
 
-	for i := m.offset; i < m.dir.FileCount(); i++ {
+	for i := m.offset; i < m.visibleFileCount; i++ {
 		if i-m.offset-skipped == m.h {
 			break
 		}
 
-		file := files[i]
+		file := m.visibleFiles[i]
 
 		charsWritten := 0
 		if i == m.cursorIndex {
@@ -211,7 +196,7 @@ func (m *Model) Move(dir Direction) *Model {
 			m.cursorIndex--
 		}
 	} else {
-		if m.cursorIndex < m.dir.FileCount()-1 {
+		if m.cursorIndex < m.visibleFileCount-1 {
 			m.cursorIndex++
 		}
 	}
@@ -221,18 +206,51 @@ func (m *Model) Move(dir Direction) *Model {
 		m.offset--
 	} else {
 		if m.cursorIndex-m.offset >= m.h-m.cfg.ScrollPadding {
-			m.offset = util.Min(m.dir.FileCount()-m.h, m.offset+1)
+			m.offset = util.Min(m.visibleFileCount-m.h, m.offset+1)
 		}
 	}
 
 	log.Trace().
 		Int("i", m.cursorIndex).
 		Int("offset", m.offset).
-		Str("file", path.Join(m.path, m.dir.GetFileAtIndex(m.cursorIndex).GetDirEntry().Name())).
-		Int("fCount", m.dir.FileCount()).
+		Str("file", path.Join(m.path, m.visibleFiles[m.cursorIndex].GetDirEntry().Name())).
+		Int("fCount", m.visibleFileCount).
 		Msg("cusor moved")
 
 	return m
+}
+
+func (m *Model) loadDirectory(dir fs.Directory) {
+	m.dir = dir
+	m.err = nil
+	m.visibleFiles = make([]fs.File, 0, m.visibleFileCount)
+	cnt := 0
+	for _, f := range dir.Files() {
+		if !f.Hidden() {
+			cnt++
+			m.visibleFiles = append(m.visibleFiles, f)
+		} else if m.cfg.ShowHiddenFiles {
+			cnt++
+			m.visibleFiles = append(m.visibleFiles, f)
+		}
+	}
+	m.visibleFileCount = cnt
+
+	// Ensure that the cursorIndex does not exceed the
+	// amount of selectable files
+	if m.cursorIndex >= m.visibleFileCount {
+		m.cursorIndex = m.visibleFileCount - 1
+	}
+	m.loaded = true
+}
+
+func (m *Model) setSelectedFile(name string) {
+	for i, file := range m.visibleFiles {
+		if file.GetDirEntry().Name() == name {
+			m.cursorIndex = i
+			break
+		}
+	}
 }
 
 // IsFocusable returns true if it is possible to focus the current view
@@ -242,7 +260,7 @@ func (m Model) IsFocusable() bool {
 
 // GetSelection returns the current file the cursor is over
 func (m Model) GetSelection() fss.DirEntry {
-	return m.dir.GetFileAtIndex(m.cursorIndex).GetDirEntry()
+	return m.visibleFiles[m.cursorIndex].GetDirEntry()
 }
 
 // GetSelectedPath returns the path to the viewed directory
@@ -260,7 +278,7 @@ func (m Model) GetSelectedPath() string {
 
 // Empty returns true if the directory is empty to the user
 func (m Model) Empty() bool {
-	return m.dir.FileCount() == 0
+	return m.visibleFileCount == 0
 }
 
 // cmdRead reads the current directory
