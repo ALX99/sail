@@ -28,30 +28,31 @@ type Keybinds struct {
 
 // GetConfig reads, pareses and returns the configuration
 func GetConfig() (Config, error) {
-	cfgLoc := getCfgFileLoc()
+	// Sane defaults
+	cfg := Config{
+		Settings: Settings{
+			ScrollPadding:   2,
+			ShowHiddenFiles: false,
+			Keybinds: Keybinds{
+				NavUp:    "k",
+				NavDown:  "j",
+				NavLeft:  "k",
+				NavRight: "l",
+				Delete:   "d",
+				Move:     "p",
+			},
+		},
+	}
 
+	cfgLoc := getCfgFileLoc()
 	f, err := os.ReadFile(cfgLoc)
 	if err != nil {
 		if os.IsNotExist(err) {
-			// Safe default if no config found
-			return Config{
-				Settings: Settings{
-					ScrollPadding: 2,
-					Keybinds: Keybinds{
-						NavUp:    "k",
-						NavDown:  "j",
-						NavLeft:  "k",
-						NavRight: "l",
-						Delete:   "d",
-						Move:     "p",
-					},
-				},
-			}, nil
+			return cfg, nil
 		}
 		return Config{}, err
 	}
 
-	cfg := Config{}
 	if err = yaml.Unmarshal(f, &cfg); err != nil {
 		return Config{}, err
 	}
