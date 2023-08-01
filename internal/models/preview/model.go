@@ -19,6 +19,8 @@ type Model struct {
 	h, w           int
 	stdout, stderr string
 	err            error
+
+	cfg config.Settings
 }
 
 type cmdCompletionMsg struct {
@@ -28,6 +30,7 @@ type cmdCompletionMsg struct {
 
 func New(path string, width, height int, cfg config.Config) Model {
 	return Model{
+		cfg:  cfg.Settings,
 		path: path,
 		h:    height,
 		w:    width,
@@ -111,17 +114,20 @@ func (m Model) View() string {
 			Str("file", m.path).
 			Msg("View render")
 	}()
-	style := lipgloss.NewStyle().Width(m.w).MaxHeight(m.h)
+
+	innerStyle := lipgloss.NewStyle().Height(m.h).Width(m.w).MaxHeight(m.h).MaxWidth(m.w)
+	style := lipgloss.NewStyle()
+
 	if m.err != nil {
-		return style.Render(m.err.Error())
+		innerStyle.Foreground(lipgloss.Color("#e0314f"))
+		return style.Render(innerStyle.Render(m.err.Error()))
+	} else if m.stderr != "" {
+		innerStyle.Foreground(lipgloss.Color("#e0314f"))
+		return style.Render(innerStyle.Render(m.stderr))
+	} else if m.stdout != "" {
+		return style.Render(innerStyle.Render(m.stdout))
 	}
-	if m.stderr != "" {
-		return style.Render(m.stderr)
-	}
-	if m.stdout != "" {
-		return style.Render(m.stdout)
-	}
-	return style.Render("loading")
+	return style.Render(innerStyle.Render("loading..."))
 }
 
 // SetSize sets the max allowed size of the window

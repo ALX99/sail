@@ -45,20 +45,20 @@ type Model struct {
 	loaded      bool
 	active      bool
 
-	// Configurable settings
-	scrollPadding int
+	cfg config.Settings
 }
 
 func New(path string, state *state.State, width, height int, cfg config.Config) Model {
-	return Model{
-		state:         state,
-		path:          path,
-		scrollPadding: cfg.Settings.ScrollPadding,
-		w:             width,
-		h:             height,
-		id:            uniqueID.Add(1),
-		active:        true,
+	m := Model{
+		state:  state,
+		path:   path,
+		cfg:    cfg.Settings,
+		w:      width,
+		h:      height,
+		id:     uniqueID.Add(1),
+		active: true,
 	}
+	return m
 }
 
 func (m Model) Init() tea.Cmd {
@@ -125,8 +125,8 @@ func (m *Model) setSelectedFile(name string) {
 	}
 
 	// In case the index becomes out of view
-	if m.cursorIndex > m.h-m.scrollPadding {
-		m.offset = m.cursorIndex - m.scrollPadding
+	if m.cursorIndex > m.h-m.cfg.ScrollPadding {
+		m.offset = m.cursorIndex - m.cfg.ScrollPadding
 	}
 }
 
@@ -139,7 +139,7 @@ func (m Model) View() string {
 			Msg("View render")
 	}()
 
-	style := lipgloss.NewStyle().Width(m.w)
+	style := lipgloss.NewStyle().Height(m.h).Width(m.w)
 	if m.err != nil { // check error first
 		style = style.Foreground(lipgloss.Color("#ff0000")).Bold(true)
 		if os.IsNotExist(m.err) {
@@ -149,7 +149,7 @@ func (m Model) View() string {
 	}
 
 	if !m.loaded {
-		return "loading..."
+		return style.Render("loading...")
 	}
 
 	if m.dir.FileCount() == 0 {
@@ -217,10 +217,10 @@ func (m *Model) Move(dir Direction) *Model {
 	}
 
 	// update the offset
-	if m.offset > 0 && m.cursorIndex < m.offset+m.scrollPadding {
+	if m.offset > 0 && m.cursorIndex < m.offset+m.cfg.ScrollPadding {
 		m.offset--
 	} else {
-		if m.cursorIndex-m.offset >= m.h-m.scrollPadding {
+		if m.cursorIndex-m.offset >= m.h-m.cfg.ScrollPadding {
 			m.offset = util.Min(m.dir.FileCount()-m.h, m.offset+1)
 		}
 	}

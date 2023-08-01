@@ -245,6 +245,7 @@ func (m model) View() string {
 				lipgloss.JoinHorizontal(lipgloss.Left, res...)),
 			m.im.View())
 	}
+
 	return lipgloss.JoinHorizontal(lipgloss.Left, res...)
 }
 
