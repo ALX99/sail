@@ -2,6 +2,7 @@ package primary
 
 import (
 	"os"
+	"os/exec"
 	"path"
 
 	"github.com/alx99/fly/internal/config"
@@ -145,8 +146,17 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, m.pd.InitAndSelect(path.Base(m.wd.GetPath()))
 
 		case m.cfg.Settings.Keybinds.NavRight:
-			if !m.cd.IsFocusable() || m.cd.Empty() || !m.wd.GetSelection().IsDir() {
+			if !m.cd.IsFocusable() || m.cd.Empty() {
 				return m, nil
+			}
+			if !m.wd.GetSelection().IsDir() {
+				cmd := exec.Command("xdg-open", m.wd.GetSelectedPath())
+				return m, func() tea.Msg {
+					if err := cmd.Run(); err != nil {
+						log.Err(err).Send()
+					}
+					return nil
+				}
 			}
 			m.pd = m.wd
 			m.wd = m.cd

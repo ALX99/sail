@@ -143,11 +143,10 @@ func (m Model) View() string {
 	}
 
 	var nameBuilder strings.Builder
-	skipped := 0
 	names := make([]string, 0, m.visibleFileCount)
 
 	for i := m.offset; i < m.visibleFileCount; i++ {
-		if i-m.offset-skipped == m.h {
+		if i-m.offset == m.h {
 			break
 		}
 
