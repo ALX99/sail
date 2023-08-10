@@ -54,7 +54,7 @@ func New(path string, state *state.State, width, height int, cfg config.Config) 
 	m := Model{
 		state:        state,
 		path:         path,
-	cfg:          cfg.Settings,
+		cfg:          cfg.Settings,
 		w:            width,
 		h:            height,
 		id:           uniqueID.Add(1),
@@ -205,7 +205,7 @@ func (m *Model) Move(dir Direction) *Model {
 		m.offset--
 	} else {
 		if m.cursorIndex-m.offset >= m.h-m.cfg.ScrollPadding {
-			m.offset = util.Min(m.visibleFileCount-m.h, m.offset+1)
+			m.offset = min(m.visibleFileCount-m.h, m.offset+1)
 		}
 	}
 

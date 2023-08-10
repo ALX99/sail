@@ -1,6 +1,6 @@
 module github.com/alx99/fly
 
-go 1.18
+go 1.21
 
 require (
 	github.com/charmbracelet/bubbletea v0.24.2
