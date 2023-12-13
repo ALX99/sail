@@ -27,7 +27,6 @@ type model struct {
 	// State
 	h, w              int
 	fwWidth, fwHeight int
-	firstLoad         bool
 
 	cfg config.Config
 }
@@ -38,56 +37,24 @@ func New(state *state.State, cfg config.Config) (model, error) {
 		return model{}, nil
 	}
 	m := model{
-		state:     state,
-		cfg:       cfg,
-		im:        input.New(),
-		wd:        directory.New(dir, state, 0, 0, cfg),
-		firstLoad: true,
+		state: state,
+		cfg:   cfg,
+		im:    input.New(),
+		pd:    directory.New(path.Dir(dir), directory.Parent, state, 0, 0, cfg),
+		wd:    directory.New(dir, directory.Working, state, 0, 0, cfg),
+		cd:    directory.New("", directory.Child, state, 0, 0, cfg),
 	}
 
 	return m, nil
 }
 
 func (m model) Init() tea.Cmd {
-	return m.wd.Init() // wd needs to initialized before pd and cd
+	// cd can't be initialized here since wd needs to be initialized first
+	return tea.Batch(m.wd.Init(), m.pd.InitAndSelect(path.Base(m.wd.GetPath())))
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
-	case msgs.MsgDirLoaded, msgs.MsgDirError:
-		// First-load addressed to wd
-		if msg, ok := msg.(msgs.MsgDirLoaded); ok && m.firstLoad && msg.Path == m.wd.GetPath() {
-			m.firstLoad = false
-			var cmd tea.Cmd
-
-			m.wd, cmd = m.wd.Update(msg)
-
-			// Create pd
-			m.pd = directory.New(path.Dir(msg.Path), m.state, m.fwWidth, m.fwHeight, m.cfg)
-
-			// Create cd
-			if !m.wd.Empty() && m.wd.GetSelection().IsDir() {
-				m.cd = directory.New(m.wd.GetSelectedPath(), m.state, m.fwWidth, m.fwHeight, m.cfg)
-			} else {
-				m.cd = directory.New("", m.state, m.fwWidth, m.fwHeight, m.cfg)
-			}
-
-			// Initialize cd and pd
-			return m, tea.Batch(m.pd.InitAndSelect(path.Base(m.wd.GetPath())), m.cd.Init(), cmd)
-		}
-
-		cmds := []tea.Cmd{}
-		var cmd tea.Cmd
-		m.pd, cmd = m.pd.Update(msg)
-		cmds = append(cmds, cmd)
-		m.wd, cmd = m.wd.Update(msg)
-		cmds = append(cmds, cmd)
-		m.cd, cmd = m.cd.Update(msg)
-		cmds = append(cmds, cmd)
-
-		// No need to propagate further
-		return m, tea.Batch(cmds...)
-
 	case tea.WindowSizeMsg:
 		m.h, m.w = msg.Height, msg.Width
 
@@ -135,12 +102,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			}
 
-			m.cd = m.wd
-			m.wd = m.pd
+			m.cd = m.wd.ChangeRole(directory.Child)
+			m.wd = m.pd.ChangeRole(directory.Working)
 			if m.pd.GetPath() == "/" {
-				m.pd = directory.New("", m.state, m.fwWidth, m.fwHeight, m.cfg)
+				m.pd = directory.New("", directory.Parent, m.state, m.fwWidth, m.fwHeight, m.cfg)
 			} else {
-				m.pd = directory.New(path.Dir(m.pd.GetPath()), m.state, m.fwWidth, m.fwHeight, m.cfg)
+				m.pd = directory.New(path.Dir(m.pd.GetPath()), directory.Parent, m.state, m.fwWidth, m.fwHeight, m.cfg)
 			}
 
 			return m, m.pd.InitAndSelect(path.Base(m.wd.GetPath()))
@@ -158,10 +125,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					return nil
 				}
 			}
-			m.pd = m.wd
-			m.wd = m.cd
+			m.pd = m.wd.ChangeRole(directory.Parent)
+			m.wd = m.cd.ChangeRole(directory.Working)
 			if m.wd.GetSelection().IsDir() {
-				m.cd = directory.New(m.wd.GetSelectedPath(), m.state, m.fwWidth, m.fwHeight, m.cfg)
+				m.cd = directory.New(m.wd.GetSelectedPath(), directory.Child, m.state, m.fwWidth, m.fwHeight, m.cfg)
 				return m, m.cd.Init()
 			} else {
 				// Note this is very much needed since otherwise
@@ -217,7 +184,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 // moveDown navigates downwards in the working directory
 func (m *model) moveDown() tea.Cmd {
 	if m.wd.Move(directory.Down).GetSelection().IsDir() {
-		m.cd = directory.New(m.wd.GetSelectedPath(), m.state, m.fwWidth, m.fwHeight, m.cfg)
+		m.cd = directory.New(m.wd.GetSelectedPath(), directory.Child, m.state, m.fwWidth, m.fwHeight, m.cfg)
 		return m.cd.Init()
 	} else if !m.wd.GetSelection().IsDir() {
 		m.preview = preview.New(m.wd.GetSelectedPath(), m.fwWidth, m.fwHeight, m.cfg)
@@ -229,7 +196,7 @@ func (m *model) moveDown() tea.Cmd {
 // moveUp navigates upwards in the working directory
 func (m *model) moveUp() tea.Cmd {
 	if m.wd.Move(directory.Up).GetSelection().IsDir() {
-		m.cd = directory.New(m.wd.GetSelectedPath(), m.state, m.fwWidth, m.fwHeight, m.cfg)
+		m.cd = directory.New(m.wd.GetSelectedPath(), directory.Child, m.state, m.fwWidth, m.fwHeight, m.cfg)
 		return m.cd.Init()
 	} else if !m.wd.GetSelection().IsDir() {
 		m.preview = preview.New(m.wd.GetSelectedPath(), m.fwWidth, m.fwHeight, m.cfg)
@@ -239,15 +206,14 @@ func (m *model) moveUp() tea.Cmd {
 }
 
 func (m model) View() string {
-	if m.firstLoad {
-		return "loading..."
-	}
 	res := make([]string, 3)
 	res = append(res, m.pd.View(), m.wd.View())
-	if m.wd.GetSelection().IsDir() {
-		res = append(res, m.cd.View())
-	} else if !m.wd.GetSelection().IsDir() {
-		res = append(res, m.preview.View())
+	if m.wd.Loaded() {
+		if m.wd.GetSelection().IsDir() {
+			res = append(res, m.cd.View())
+		} else if !m.wd.GetSelection().IsDir() {
+			res = append(res, m.preview.View())
+		}
 	}
 	if m.im.Focused() {
 		return lipgloss.JoinVertical(lipgloss.Top,

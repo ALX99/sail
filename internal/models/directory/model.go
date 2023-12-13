@@ -4,7 +4,6 @@ import (
 	"os"
 	"path"
 	"strings"
-	"sync/atomic"
 	"time"
 
 	fss "io/fs"
@@ -19,15 +18,20 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-type Direction uint8
+type (
+	Direction uint8
+	Role      uint8
+)
 
 const (
 	Up Direction = iota
 	Down
 )
 
-var (
-	uniqueID atomic.Uint32
+const (
+	Parent Role = iota
+	Working
+	Child
 )
 
 type Model struct {
@@ -39,29 +43,26 @@ type Model struct {
 	h, w int
 
 	// State
+	role             Role
 	offset           int
 	cursorIndex      int
-	id               uint32
 	loaded           bool
-	active           bool
 	visibleFiles     []fs.File
 	visibleFileCount int
 
 	cfg config.Settings
 }
 
-func New(path string, state *state.State, width, height int, cfg config.Config) Model {
-	m := Model{
+func New(path string, role Role, state *state.State, width, height int, cfg config.Config) Model {
+	return Model{
+		role:         role,
 		state:        state,
 		path:         path,
 		cfg:          cfg.Settings,
 		w:            width,
 		h:            height,
-		id:           uniqueID.Add(1),
 		visibleFiles: []fs.File{},
-		active:       true,
 	}
-	return m
 }
 
 func (m Model) Init() tea.Cmd {
@@ -73,36 +74,63 @@ func (m Model) InitAndSelect(name string) tea.Cmd {
 }
 
 func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
-	if !m.active { // Only allow models created from the New function to be called
-		return m, nil
-	}
 	switch msg := msg.(type) {
-	case msgs.MsgDirLoaded:
-		// Make sure it is addressed to me
-		if msg.To != m.id {
-			break
-		}
-
-		// TODO if a file/folder is deleted above the currently
-		// selected one, the cursorIndex needs to decrease by one
-		// or however many were deleted
-		m.loadDirectory(msg.Dir)
-		if msg.Select != "" {
-			if m.cfg.ShowHiddenFiles {
-				m.setSelectedFile(msg.Select)
-			} else if msg.Select[0] != '.' { // only if not hidden
-				m.setSelectedFile(msg.Select)
+	case msgDirLoaded:
+		log.Info().
+			Uint8("from_role", uint8(msg.role)).
+			Uint8("to_role", uint8(m.role)).
+			Msg("View render")
+		if msg.role == m.role {
+			wasLoaded := m.loaded
+			// TODO if a file/folder is deleted above the currently
+			// selected one, the cursorIndex needs to decrease by one
+			// or however many were deleted
+			m.loadDirectory(msg.dir)
+			if msg.onLoadSelect != "" {
+				if m.cfg.ShowHiddenFiles {
+					m.setSelectedFile(msg.onLoadSelect)
+				} else if msg.onLoadSelect[0] != '.' { // only if not hidden
+					m.setSelectedFile(msg.onLoadSelect)
+				}
 			}
+			// First load on WD, means CD needs to be loaded
+			if m.role == Working && !wasLoaded && m.GetSelection().IsDir() {
+				log.Debug().Msg("running suboptimal cd init")
+				return m, func() tea.Msg {
+					dir, err := fs.NewDirectory(m.GetSelectedPath())
+					if err != nil {
+						log.Err(err).
+							Str("path", m.path).
+							Msg("Failed to read directory")
+						return msgDirError{
+							role: Child,
+							path: m.path,
+							err:  err,
+						}
+					}
+					return msgDirLoaded{
+						role: Child,
+						path: m.path,
+						dir:  dir,
+					}
+				}
+			}
+			return m, nil
+			// TODO cmdTickRead no longer works, because
+			// each new directory model does not have a unique ID
+			// this might be better to do inside primary anyway
+			// (issue the MsgDirReload command from primary every 5s)
+			// return m, m.cmdTickRead()
 		}
 
-		return m, m.cmdTickRead()
+		return m, nil
 
-	case msgs.MsgDirError:
+	case msgDirError:
 		// Make sure it is addressed to me
-		if msg.To != m.id {
+		if msg.role != m.role {
 			break
 		}
-		m.err = msg.Err
+		m.err = msg.err
 		return m, nil
 
 	case msgs.MsgDirReload:
@@ -280,6 +308,15 @@ func (m Model) Empty() bool {
 	return m.visibleFileCount == 0
 }
 
+func (m Model) Loaded() bool {
+	return m.loaded
+}
+
+func (m Model) ChangeRole(role Role) Model {
+	m.role = role
+	return m
+}
+
 // cmdRead reads the current directory
 func (m Model) cmdRead(selectName string) tea.Cmd {
 	log.Trace().Msgf("Loading directory %q", m.path)
@@ -288,18 +325,19 @@ func (m Model) cmdRead(selectName string) tea.Cmd {
 		if err != nil {
 			log.Err(err).
 				Str("path", m.path).
+				Uint8("role", uint8(m.role)).
 				Msg("Failed to read directory")
-			return msgs.MsgDirError{
-				To:   m.id,
-				Path: m.path,
-				Err:  err,
+			return msgDirError{
+				role: m.role,
+				path: m.path,
+				err:  err,
 			}
 		}
-		return msgs.MsgDirLoaded{
-			To:     m.id,
-			Path:   m.path,
-			Dir:    dir,
-			Select: selectName,
+		return msgDirLoaded{
+			role:         m.role,
+			path:         m.path,
+			dir:          dir,
+			onLoadSelect: selectName,
 		}
 	}
 }
