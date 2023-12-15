@@ -81,6 +81,7 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 			Uint8("to_role", uint8(m.role)).
 			Msg("View render")
 		if msg.role == m.role {
+			m.path = msg.path
 			wasLoaded := m.loaded
 			// TODO if a file/folder is deleted above the currently
 			// selected one, the cursorIndex needs to decrease by one
@@ -95,7 +96,7 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 			}
 			// First load on WD, means CD needs to be loaded
 			if m.role == Working && !wasLoaded && m.GetSelection().IsDir() {
-				log.Debug().Msg("running suboptimal cd init")
+				log.Debug().Str("path", m.GetSelectedPath()).Msg("running suboptimal cd init")
 				return m, func() tea.Msg {
 					dir, err := fs.NewDirectory(m.GetSelectedPath())
 					if err != nil {
@@ -104,13 +105,13 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 							Msg("Failed to read directory")
 						return msgDirError{
 							role: Child,
-							path: m.path,
+							path: m.GetSelectedPath(),
 							err:  err,
 						}
 					}
 					return msgDirLoaded{
 						role: Child,
-						path: m.path,
+						path: m.GetSelectedPath(),
 						dir:  dir,
 					}
 				}
