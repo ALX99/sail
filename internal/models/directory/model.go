@@ -287,6 +287,9 @@ func (m Model) IsFocusable() bool {
 
 // GetSelection returns the current file the cursor is over
 func (m Model) GetSelection() fss.DirEntry {
+	if !m.loaded {
+		return emptyDirEntry{}
+	}
 	return m.visibleFiles[m.cursorIndex].GetDirEntry()
 }
 
@@ -306,10 +309,6 @@ func (m Model) GetSelectedPath() string {
 // Empty returns true if the directory is empty to the user
 func (m Model) Empty() bool {
 	return m.visibleFileCount == 0
-}
-
-func (m Model) Loaded() bool {
-	return m.loaded
 }
 
 func (m Model) ChangeRole(role Role) Model {

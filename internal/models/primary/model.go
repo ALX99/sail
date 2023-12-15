@@ -208,12 +208,10 @@ func (m *model) moveUp() tea.Cmd {
 func (m model) View() string {
 	res := make([]string, 3)
 	res = append(res, m.pd.View(), m.wd.View())
-	if m.wd.Loaded() {
-		if m.wd.GetSelection().IsDir() {
-			res = append(res, m.cd.View())
-		} else if !m.wd.GetSelection().IsDir() {
-			res = append(res, m.preview.View())
-		}
+	if m.wd.GetSelection().IsDir() {
+		res = append(res, m.cd.View())
+	} else if !m.wd.GetSelection().IsDir() {
+		res = append(res, m.preview.View())
 	}
 	if m.im.Focused() {
 		return lipgloss.JoinVertical(lipgloss.Top,
