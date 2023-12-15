@@ -183,7 +183,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 // moveDown navigates downwards in the working directory
 func (m *model) moveDown() tea.Cmd {
-	if m.wd.Move(directory.Down).GetSelection().IsDir() {
+	prev := m.wd.GetSelection()
+	if m.wd.Move(directory.Down).GetSelection() == prev {
+		return nil // selection did not move, don't try to init a new dir
+	}
+	if m.wd.GetSelection().IsDir() {
 		m.cd = directory.New(m.wd.GetSelectedPath(), directory.Child, m.state, m.fwWidth, m.fwHeight, m.cfg)
 		return m.cd.Init()
 	} else if !m.wd.GetSelection().IsDir() {
@@ -195,7 +199,11 @@ func (m *model) moveDown() tea.Cmd {
 
 // moveUp navigates upwards in the working directory
 func (m *model) moveUp() tea.Cmd {
-	if m.wd.Move(directory.Up).GetSelection().IsDir() {
+	prev := m.wd.GetSelection()
+	if m.wd.Move(directory.Up).GetSelection() == prev {
+		return nil // selection did not move, don't try to init a new dir
+	}
+	if m.wd.GetSelection().IsDir() {
 		m.cd = directory.New(m.wd.GetSelectedPath(), directory.Child, m.state, m.fwWidth, m.fwHeight, m.cfg)
 		return m.cd.Init()
 	} else if !m.wd.GetSelection().IsDir() {
