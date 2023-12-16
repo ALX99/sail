@@ -90,7 +90,7 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 			Uint8("to_role", uint8(m.role)).
 			Msg("View render")
 		if msg.role == m.role {
-			m.path = msg.path
+			m.path = msg.dir.Path()
 			wasLoaded := m.loaded
 			// TODO if a file/folder is deleted above the currently
 			// selected one, the cursorIndex needs to decrease by one
@@ -114,13 +114,11 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 							Msg("Failed to read directory")
 						return msgDirError{
 							role: Child,
-							path: m.GetSelectedPath(),
 							err:  err,
 						}
 					}
 					return msgDirLoaded{
 						role: Child,
-						path: m.GetSelectedPath(),
 						dir:  dir,
 					}
 				}
@@ -339,13 +337,11 @@ func (m Model) cmdRead(selectName string) tea.Cmd {
 				Msg("Failed to read directory")
 			return msgDirError{
 				role: m.role,
-				path: m.path,
 				err:  err,
 			}
 		}
 		return msgDirLoaded{
 			role:         m.role,
-			path:         m.path,
 			dir:          dir,
 			onLoadSelect: selectName,
 		}

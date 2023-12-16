@@ -7,6 +7,7 @@ import (
 )
 
 type Directory struct {
+	path      string
 	files     []File
 	fileCount int
 }
@@ -19,6 +20,7 @@ func NewDirectory(path string) (Directory, error) {
 
 	dir := Directory{
 		fileCount: len(files),
+		path:      path,
 	}
 	dir.files = make([]File, 0, dir.fileCount)
 
@@ -44,11 +46,15 @@ func NewDirectory(path string) (Directory, error) {
 	return dir, nil
 }
 
-func (d *Directory) Files() []File {
+func (d Directory) Path() string {
+	return d.path
+}
+
+func (d Directory) Files() []File {
 	return d.files
 }
 
-func (d *Directory) FileCount() int {
+func (d Directory) FileCount() int {
 	return d.fileCount
 }
 
