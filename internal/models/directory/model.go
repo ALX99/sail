@@ -1,5 +1,6 @@
 package directory
 
+//go:generate stringer -type=Role,Direction
 import (
 	"os"
 	"path"
