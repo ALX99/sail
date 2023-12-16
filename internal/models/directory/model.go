@@ -16,6 +16,7 @@ import (
 	"github.com/alx99/fly/internal/util"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
 
@@ -51,7 +52,8 @@ type Model struct {
 	visibleFiles     []fs.File
 	visibleFileCount int
 
-	cfg config.Settings
+	cfg    config.Settings
+	logger zerolog.Logger
 }
 
 func New(path string, role Role, state *state.State, width, height int, cfg config.Config) Model {
@@ -63,6 +65,10 @@ func New(path string, role Role, state *state.State, width, height int, cfg conf
 		w:            width,
 		h:            height,
 		visibleFiles: []fs.File{},
+		logger: log.With().
+			Str("role", role.String()).
+			Str("path", path).
+			Logger(),
 	}
 }
 
@@ -86,10 +92,6 @@ func (m Model) Reinit() tea.Cmd {
 func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case msgDirLoaded:
-		log.Info().
-			Uint8("from_role", uint8(msg.role)).
-			Uint8("to_role", uint8(m.role)).
-			Msg("View render")
 		if msg.role == m.role {
 			m.path = msg.dir.Path()
 			wasLoaded := m.loaded
@@ -106,12 +108,11 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 			}
 			// First load on WD, means CD needs to be loaded
 			if m.role == Working && !wasLoaded && m.GetSelection().IsDir() {
-				log.Debug().Str("path", m.GetSelectedPath()).Msg("running suboptimal cd init")
+				m.logger.Debug().Str("select", m.GetSelection().Name()).Msg("running suboptimal cd init")
 				return m, func() tea.Msg {
 					dir, err := fs.NewDirectory(m.GetSelectedPath())
 					if err != nil {
-						log.Err(err).
-							Str("path", m.path).
+						m.logger.Err(err).
 							Msg("Failed to read directory")
 						return msgDirError{
 							role: Child,
@@ -156,9 +157,8 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 func (m Model) View() string {
 	t := time.Now()
 	defer func() {
-		log.Trace().
+		m.logger.Trace().
 			Str("dur", time.Since(t).String()).
-			Str("dir", m.path).
 			Msg("View render")
 	}()
 
@@ -246,10 +246,10 @@ func (m *Model) Move(dir Direction) *Model {
 		}
 	}
 
-	log.Trace().
+	m.logger.Trace().
 		Int("i", m.cursorIndex).
 		Int("offset", m.offset).
-		Str("file", path.Join(m.path, m.visibleFiles[m.cursorIndex].GetDirEntry().Name())).
+		Str("file", path.Join(m.path, m.GetSelection().Name())).
 		Int("fCount", m.visibleFileCount).
 		Msg("cusor moved")
 
@@ -279,6 +279,9 @@ func (m *Model) loadDirectory(dir fs.Directory) {
 		m.cursorIndex = max(0, m.visibleFileCount-1)
 	}
 	m.loaded = true
+	m.logger.Debug().Int("cursorIndex", m.cursorIndex).
+		Int("visibleFileCount", m.visibleFileCount).
+		Msg("loaded directory")
 }
 
 func (m *Model) setSelectedFile(name string) {
@@ -328,14 +331,11 @@ func (m Model) ChangeRole(role Role) Model {
 
 // cmdRead reads the current directory
 func (m Model) cmdRead(selectName string) tea.Cmd {
-	log.Trace().Msgf("Loading directory %q", m.path)
+	m.logger.Trace().Msgf("Loading directory")
 	return func() tea.Msg {
 		dir, err := fs.NewDirectory(m.path)
 		if err != nil {
-			log.Err(err).
-				Str("path", m.path).
-				Uint8("role", uint8(m.role)).
-				Msg("Failed to read directory")
+			m.logger.Err(err).Msg("Failed to read directory")
 			return msgDirError{
 				role: m.role,
 				err:  err,
