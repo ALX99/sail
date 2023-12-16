@@ -73,6 +73,15 @@ func (m Model) InitAndSelect(name string) tea.Cmd {
 	return m.cmdRead(name)
 }
 
+// Reinit reinitializes the directory and tries (best-effort)
+// to select the same file as before
+func (m Model) Reinit() tea.Cmd {
+	if m.visibleFileCount > 0 {
+		return m.cmdRead(m.visibleFiles[m.cursorIndex].GetDirEntry().Name())
+	}
+	return m.Init()
+}
+
 func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case msgDirLoaded:

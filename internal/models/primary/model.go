@@ -27,6 +27,7 @@ type model struct {
 	// State
 	h, w              int
 	fwWidth, fwHeight int
+	dirCache          map[string]directory.Model
 
 	cfg config.Config
 }
@@ -37,12 +38,13 @@ func New(state *state.State, cfg config.Config) (model, error) {
 		return model{}, nil
 	}
 	m := model{
-		state: state,
-		cfg:   cfg,
-		im:    input.New(),
-		pd:    directory.New(path.Dir(dir), directory.Parent, state, 0, 0, cfg),
-		wd:    directory.New(dir, directory.Working, state, 0, 0, cfg),
-		cd:    directory.New("", directory.Child, state, 0, 0, cfg),
+		state:    state,
+		cfg:      cfg,
+		im:       input.New(),
+		pd:       directory.New(path.Dir(dir), directory.Parent, state, 0, 0, cfg),
+		wd:       directory.New(dir, directory.Working, state, 0, 0, cfg),
+		cd:       directory.New("", directory.Child, state, 0, 0, cfg),
+		dirCache: make(map[string]directory.Model),
 	}
 
 	return m, nil
@@ -102,12 +104,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			}
 
+			m.cacheAdd(m.cd)
 			m.cd = m.wd.ChangeRole(directory.Child)
 			m.wd = m.pd.ChangeRole(directory.Working)
 			if m.pd.GetPath() == "/" {
 				m.pd = directory.New("", directory.Parent, m.state, m.fwWidth, m.fwHeight, m.cfg)
 			} else {
-				m.pd = directory.New(path.Dir(m.pd.GetPath()), directory.Parent, m.state, m.fwWidth, m.fwHeight, m.cfg)
+				m.pd, _ = m.cacheTryGet(path.Dir(m.pd.GetPath()), directory.Parent)
 			}
 
 			return m, m.pd.InitAndSelect(path.Base(m.wd.GetPath()))
@@ -125,10 +128,15 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					return nil
 				}
 			}
+			m.cacheAdd(m.pd)
 			m.pd = m.wd.ChangeRole(directory.Parent)
 			m.wd = m.cd.ChangeRole(directory.Working)
 			if m.wd.GetSelection().IsDir() {
-				m.cd = directory.New(m.wd.GetSelectedPath(), directory.Child, m.state, m.fwWidth, m.fwHeight, m.cfg)
+				var ok bool
+				m.cd, ok = m.cacheTryGet(m.wd.GetSelectedPath(), directory.Child)
+				if ok {
+					return m, m.cd.Reinit()
+				}
 				return m, m.cd.Init()
 			} else {
 				// Note this is very much needed since otherwise
@@ -188,7 +196,11 @@ func (m *model) moveDown() tea.Cmd {
 		return nil // selection did not move, don't try to init a new dir
 	}
 	if m.wd.GetSelection().IsDir() {
-		m.cd = directory.New(m.wd.GetSelectedPath(), directory.Child, m.state, m.fwWidth, m.fwHeight, m.cfg)
+		var ok bool
+		m.cd, ok = m.cacheAdd(m.cd).cacheTryGet(m.wd.GetSelectedPath(), directory.Child)
+		if ok {
+			return m.cd.Reinit()
+		}
 		return m.cd.Init()
 	} else if !m.wd.GetSelection().IsDir() {
 		m.preview = preview.New(m.wd.GetSelectedPath(), m.fwWidth, m.fwHeight, m.cfg)
@@ -204,7 +216,11 @@ func (m *model) moveUp() tea.Cmd {
 		return nil // selection did not move, don't try to init a new dir
 	}
 	if m.wd.GetSelection().IsDir() {
-		m.cd = directory.New(m.wd.GetSelectedPath(), directory.Child, m.state, m.fwWidth, m.fwHeight, m.cfg)
+		var ok bool
+		m.cd, ok = m.cacheAdd(m.cd).cacheTryGet(m.wd.GetSelectedPath(), directory.Child)
+		if ok {
+			return m.cd.Reinit()
+		}
 		return m.cd.Init()
 	} else if !m.wd.GetSelection().IsDir() {
 		m.preview = preview.New(m.wd.GetSelectedPath(), m.fwWidth, m.fwHeight, m.cfg)
@@ -238,6 +254,19 @@ func (m *model) updateFWHeight(delta int) {
 	m.wd.SetSize(m.fwWidth, m.fwHeight)
 	m.cd.SetSize(m.w-m.fwWidth*2, m.fwHeight)
 	m.preview.SetSize(m.w-m.fwWidth*2, m.fwHeight)
+}
+
+func (m *model) cacheAdd(dir directory.Model) *model {
+	m.dirCache[dir.GetPath()] = dir
+	return m
+}
+
+func (m *model) cacheTryGet(path string, role directory.Role) (directory.Model, bool) {
+	if dir, ok := m.dirCache[path]; ok {
+		log.Trace().Str("path", dir.GetPath()).Msg("cache hit")
+		return dir, true
+	}
+	return directory.New(path, role, m.state, m.fwWidth, m.fwHeight, m.cfg), false
 }
 
 func (m model) logState() {
