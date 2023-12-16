@@ -94,10 +94,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 
 		case m.cfg.Settings.Keybinds.NavUp:
-			return m, m.moveUp()
+			return m, m.move(directory.Up)
 
 		case m.cfg.Settings.Keybinds.NavDown:
-			return m, m.moveDown()
+			return m, m.move(directory.Down)
 
 		case m.cfg.Settings.Keybinds.NavLeft:
 			if !m.pd.IsFocusable() {
@@ -149,7 +149,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case " ":
 			m.state.ToggleSelect(m.wd.GetSelectedPath())
-			return m, m.moveDown()
+			return m, m.move(directory.Down)
 
 		case m.cfg.Settings.Keybinds.Delete, m.cfg.Settings.Keybinds.Move:
 			if !m.state.HasSelectedFiles() {
@@ -189,30 +189,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, tea.Batch(cmds...)
 }
 
-// moveDown navigates downwards in the working directory
-func (m *model) moveDown() tea.Cmd {
+func (m *model) move(dir directory.Direction) tea.Cmd {
 	prev := m.wd.GetSelection()
-	if m.wd.Move(directory.Down).GetSelection() == prev {
-		return nil // selection did not move, don't try to init a new dir
-	}
-	if m.wd.GetSelection().IsDir() {
-		var ok bool
-		m.cd, ok = m.cacheAdd(m.cd).cacheTryGet(m.wd.GetSelectedPath(), directory.Child)
-		if ok {
-			return m.cd.Reinit()
-		}
-		return m.cd.Init()
-	} else if !m.wd.GetSelection().IsDir() {
-		m.preview = preview.New(m.wd.GetSelectedPath(), m.fwWidth, m.fwHeight, m.cfg)
-		return m.preview.Init()
-	}
-	return nil
-}
-
-// moveUp navigates upwards in the working directory
-func (m *model) moveUp() tea.Cmd {
-	prev := m.wd.GetSelection()
-	if m.wd.Move(directory.Up).GetSelection() == prev {
+	if m.wd.Move(dir).GetSelection() == prev {
 		return nil // selection did not move, don't try to init a new dir
 	}
 	if m.wd.GetSelection().IsDir() {
