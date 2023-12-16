@@ -267,7 +267,8 @@ func (m *Model) loadDirectory(dir fs.Directory) {
 	// Ensure that the cursorIndex does not exceed the
 	// amount of selectable files
 	if m.cursorIndex >= m.visibleFileCount {
-		m.cursorIndex = m.visibleFileCount - 1
+		// cursorIndex is zero-indexed
+		m.cursorIndex = max(0, m.visibleFileCount-1)
 	}
 	m.loaded = true
 }
