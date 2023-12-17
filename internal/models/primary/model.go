@@ -16,6 +16,10 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+type Config struct {
+	PWDFile string
+}
+
 type model struct {
 	pd      directory.Model // parent directory
 	wd      directory.Model // working directory
@@ -29,10 +33,11 @@ type model struct {
 	fwWidth, fwHeight int
 	dirCache          map[string]directory.Model
 
-	cfg config.Config
+	cfg      config.Config
+	modelCfg Config
 }
 
-func New(state *state.State, cfg config.Config) (model, error) {
+func New(state *state.State, modelCfg Config, cfg config.Config) (model, error) {
 	dir, err := os.Getwd()
 	if err != nil {
 		return model{}, nil
@@ -40,6 +45,7 @@ func New(state *state.State, cfg config.Config) (model, error) {
 	m := model{
 		state:    state,
 		cfg:      cfg,
+		modelCfg: modelCfg,
 		im:       input.New(),
 		pd:       directory.New(path.Dir(dir), directory.Parent, state, 0, 0, cfg),
 		wd:       directory.New(dir, directory.Working, state, 0, 0, cfg),
@@ -91,6 +97,15 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		switch kp := msg.String(); kp {
 		case "ctrl+c", "q":
+			if m.modelCfg.PWDFile == "" {
+				return m, tea.Quit
+			}
+			f, err := os.Create(m.modelCfg.PWDFile)
+			if err != nil {
+				return m, tea.Quit
+			}
+			f.WriteString(m.wd.GetPath())
+			f.Close()
 			return m, tea.Quit
 
 		case m.cfg.Settings.Keybinds.NavUp:
