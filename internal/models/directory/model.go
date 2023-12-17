@@ -144,6 +144,9 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 		return m, nil
 
 	case msgs.MsgDirReload:
+		if m.loaded {
+			return m, m.Reinit()
+		}
 		return m, m.cmdRead("")
 
 	case tea.KeyMsg:
