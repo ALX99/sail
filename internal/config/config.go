@@ -34,9 +34,9 @@ func GetConfig() (Config, error) {
 			ScrollPadding:   2,
 			ShowHiddenFiles: false,
 			Keybinds: Keybinds{
-				NavUp:    "k",
+				NavLeft:  "h",
 				NavDown:  "j",
-				NavLeft:  "k",
+				NavUp:    "k",
 				NavRight: "l",
 				Delete:   "d",
 				Move:     "p",
