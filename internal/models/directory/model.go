@@ -237,6 +237,7 @@ func (m *Model) Move(dir Direction) *Model {
 		}
 	}
 
+	// todo fix offset to be able to move more than 1
 	// update the offset
 	if m.offset > 0 && m.cursorIndex < m.offset+m.cfg.ScrollPadding {
 		m.offset--
