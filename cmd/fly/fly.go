@@ -4,9 +4,9 @@ import (
 	"flag"
 
 	"github.com/alx99/fly/internal/config"
-	"github.com/alx99/fly/internal/models/primary"
 	"github.com/alx99/fly/internal/state"
 	"github.com/alx99/fly/internal/util"
+	"github.com/alx99/fly/internal/views/primary"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/rs/zerolog/log"
 )

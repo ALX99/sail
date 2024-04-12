@@ -1,4 +1,4 @@
-package directory
+package dir
 
 import "github.com/alx99/fly/internal/fs"
 

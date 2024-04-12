@@ -1,4 +1,4 @@
-package directory
+package dir
 
 //go:generate stringer -type=Role,Direction
 import (
@@ -98,7 +98,7 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 			// TODO if a file/folder is deleted above the currently
 			// selected one, the cursorIndex needs to decrease by one
 			// or however many were deleted
-			m.loadDirectory(msg.dir)
+			m.setDirectory(msg.dir)
 			if msg.onLoadSelect != "" {
 				if m.cfg.ShowHiddenFiles {
 					m.setSelectedFile(msg.onLoadSelect)
@@ -260,7 +260,8 @@ func (m *Model) Move(dir Direction) *Model {
 	return m
 }
 
-func (m *Model) loadDirectory(dir fs.Directory) {
+// setDirectory sets the current working directory for the model
+func (m *Model) setDirectory(dir fs.Directory) {
 	m.dir = dir
 	m.err = nil
 	m.visibleFiles = make([]fs.File, 0, m.visibleFileCount)

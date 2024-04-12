@@ -6,11 +6,11 @@ import (
 	"path"
 
 	"github.com/alx99/fly/internal/config"
-	"github.com/alx99/fly/internal/models/directory"
-	"github.com/alx99/fly/internal/models/input"
-	"github.com/alx99/fly/internal/models/preview"
 	"github.com/alx99/fly/internal/msgs"
 	"github.com/alx99/fly/internal/state"
+	"github.com/alx99/fly/internal/views/dir"
+	"github.com/alx99/fly/internal/views/input"
+	"github.com/alx99/fly/internal/views/preview"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/rs/zerolog/log"
@@ -21,9 +21,9 @@ type Config struct {
 }
 
 type model struct {
-	pd      directory.Model // parent directory
-	wd      directory.Model // working directory
-	cd      directory.Model // child directory
+	pd      dir.Model // parent directory
+	wd      dir.Model // working directory
+	cd      dir.Model // child directory
 	preview preview.Model
 	im      input.Model
 	state   *state.State
@@ -31,14 +31,14 @@ type model struct {
 	// State
 	h, w              int
 	fwWidth, fwHeight int
-	dirCache          map[string]directory.Model
+	dirCache          map[string]dir.Model
 
 	cfg      config.Config
 	modelCfg Config
 }
 
 func New(state *state.State, modelCfg Config, cfg config.Config) (model, error) {
-	dir, err := os.Getwd()
+	d, err := os.Getwd()
 	if err != nil {
 		return model{}, nil
 	}
@@ -47,15 +47,17 @@ func New(state *state.State, modelCfg Config, cfg config.Config) (model, error) 
 		cfg:      cfg,
 		modelCfg: modelCfg,
 		im:       input.New(),
-		pd:       directory.New(path.Dir(dir), directory.Parent, state, 0, 0, cfg),
-		wd:       directory.New(dir, directory.Working, state, 0, 0, cfg),
-		cd:       directory.New("", directory.Child, state, 0, 0, cfg),
-		dirCache: make(map[string]directory.Model),
+		pd:       dir.New(path.Dir(d), dir.Parent, state, 0, 0, cfg),
+		wd:       dir.New(d, dir.Working, state, 0, 0, cfg),
+		cd:       dir.New("", dir.Child, state, 0, 0, cfg),
+		dirCache: make(map[string]dir.Model),
 	}
 
 	return m, nil
 }
 
+// TODO, init on a parent directory that selects a directory out of view
+// does not properly adjust the offset
 func (m model) Init() tea.Cmd {
 	// cd can't be initialized here since wd needs to be initialized first
 	return tea.Batch(m.wd.Init(), m.pd.InitAndSelect(path.Base(m.wd.GetPath())))
@@ -109,10 +111,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 
 		case m.cfg.Settings.Keybinds.NavUp:
-			return m, m.move(directory.Up)
+			return m, m.move(dir.Up)
 
 		case m.cfg.Settings.Keybinds.NavDown:
-			return m, m.move(directory.Down)
+			return m, m.move(dir.Down)
 
 		case m.cfg.Settings.Keybinds.NavLeft:
 			if !m.pd.IsFocusable() {
@@ -120,12 +122,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 
 			m.cacheAdd(m.cd)
-			m.cd = m.wd.ChangeRole(directory.Child)
-			m.wd = m.pd.ChangeRole(directory.Working)
+			m.cd = m.wd.ChangeRole(dir.Child)
+			m.wd = m.pd.ChangeRole(dir.Working)
 			if m.pd.GetPath() == "/" {
-				m.pd = directory.New("", directory.Parent, m.state, m.fwWidth, m.fwHeight, m.cfg)
+				m.pd = dir.New("", dir.Parent, m.state, m.fwWidth, m.fwHeight, m.cfg)
 			} else {
-				m.pd, _ = m.cacheTryGet(path.Dir(m.pd.GetPath()), directory.Parent)
+				m.pd, _ = m.cacheTryGet(path.Dir(m.pd.GetPath()), dir.Parent)
 			}
 
 			return m, m.pd.InitAndSelect(path.Base(m.wd.GetPath()))
@@ -144,11 +146,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 			m.cacheAdd(m.pd)
-			m.pd = m.wd.ChangeRole(directory.Parent)
-			m.wd = m.cd.ChangeRole(directory.Working)
+			m.pd = m.wd.ChangeRole(dir.Parent)
+			m.wd = m.cd.ChangeRole(dir.Working)
 			if m.wd.GetSelection().IsDir() {
 				var ok bool
-				m.cd, ok = m.cacheTryGet(m.wd.GetSelectedPath(), directory.Child)
+				m.cd, ok = m.cacheTryGet(m.wd.GetSelectedPath(), dir.Child)
 				if ok {
 					return m, m.cd.Reinit()
 				}
@@ -157,14 +159,14 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				// Note this is very much needed since otherwise
 				// m.wd and m.cd will have the same ID and will
 				// consume the same messages
-				m.cd = directory.Model{}
+				m.cd = dir.Model{}
 				m.preview = preview.New(m.wd.GetSelectedPath(), m.fwWidth, m.fwHeight, m.cfg)
 				return m, m.preview.Init()
 			}
 
 		case " ":
 			m.state.ToggleSelect(m.wd.GetSelectedPath())
-			return m, m.move(directory.Down)
+			return m, m.move(dir.Down)
 
 		case m.cfg.Settings.Keybinds.Delete, m.cfg.Settings.Keybinds.Move:
 			if !m.state.HasSelectedFiles() {
@@ -204,14 +206,14 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, tea.Batch(cmds...)
 }
 
-func (m *model) move(dir directory.Direction) tea.Cmd {
+func (m *model) move(direct dir.Direction) tea.Cmd {
 	prev := m.wd.GetSelection()
-	if m.wd.Move(dir).GetSelection() == prev {
+	if m.wd.Move(direct).GetSelection() == prev {
 		return nil // selection did not move, don't try to init a new dir
 	}
 	if m.wd.GetSelection().IsDir() {
 		var ok bool
-		m.cd, ok = m.cacheAdd(m.cd).cacheTryGet(m.wd.GetSelectedPath(), directory.Child)
+		m.cd, ok = m.cacheAdd(m.cd).cacheTryGet(m.wd.GetSelectedPath(), dir.Child)
 		if ok {
 			return m.cd.Reinit()
 		}
@@ -250,17 +252,20 @@ func (m *model) updateFWHeight(delta int) {
 	m.preview.SetSize(m.w-m.fwWidth*2, m.fwHeight)
 }
 
-func (m *model) cacheAdd(dir directory.Model) *model {
+// cacheAdd adds a directory to the cache.
+func (m *model) cacheAdd(dir dir.Model) *model {
 	m.dirCache[dir.GetPath()] = dir
 	return m
 }
 
-func (m *model) cacheTryGet(path string, role directory.Role) (directory.Model, bool) {
+// cacheTryGet tries to get a directory from the cache.
+// If the directory is not in the cache, it reads the directory and returns it.
+func (m *model) cacheTryGet(path string, role dir.Role) (dir.Model, bool) {
 	if dir, ok := m.dirCache[path]; ok {
 		log.Trace().Str("path", dir.GetPath()).Msg("cache hit")
 		return dir, true
 	}
-	return directory.New(path, role, m.state, m.fwWidth, m.fwHeight, m.cfg), false
+	return dir.New(path, role, m.state, m.fwWidth, m.fwHeight, m.cfg), false
 }
 
 func (m model) logState() {
