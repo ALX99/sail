@@ -84,7 +84,7 @@ func (m Model) InitAndSelect(name string) tea.Cmd {
 // to select the same file as before
 func (m Model) Reinit() tea.Cmd {
 	if m.visibleFileCount > 0 {
-		return m.cmdRead(m.visibleFiles[m.cursor].GetDirEntry().Name())
+		return m.cmdRead(m.visibleFiles[m.cursor].DirEntry().Name())
 	}
 	return m.Init()
 }
@@ -107,22 +107,14 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 				}
 			}
 			// First load on WD, means CD needs to be loaded
-			if m.role == Working && !wasLoaded && m.GetSelection().IsDir() {
-				m.logger.Debug().Str("select", m.GetSelection().Name()).Msg("running suboptimal cd init")
+			// This is kind of a hack since it tries to send a message not to itself
+			if m.role == Working && !wasLoaded && m.Selection().IsDir() {
 				return m, func() tea.Msg {
-					dir, err := fs.NewDirectory(m.GetSelectedPath())
+					dir, err := fs.NewDirectory(m.SelectedPath())
 					if err != nil {
-						m.logger.Err(err).
-							Msg("Failed to read directory")
-						return msgDirError{
-							role: Child,
-							err:  err,
-						}
+						return msgDirError{role: Child, err: err}
 					}
-					return msgDirLoaded{
-						role: Child,
-						dir:  dir,
-					}
+					return msgDirLoaded{role: Child, dir: dir}
 				}
 			}
 			return m, nil
@@ -141,6 +133,7 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 			break
 		}
 		m.err = msg.err
+		m.logger.Err(m.err).Msg("Something went wrong")
 		return m, nil
 
 	case msgs.MsgDirReload:
@@ -198,7 +191,7 @@ func (m Model) View() string {
 			charsWritten += 2
 		}
 
-		selectedFile := file.GetDirEntry()
+		selectedFile := file.DirEntry()
 		name := selectedFile.Name()
 		if len(name)+charsWritten > m.w {
 			name = name[:m.w-charsWritten-1] + "~"
@@ -253,7 +246,7 @@ func (m *Model) Move(dir Direction) *Model {
 	m.logger.Trace().
 		Int("i", m.cursor).
 		Int("offset", m.offset).
-		Str("file", path.Join(m.path, m.GetSelection().Name())).
+		Str("file", path.Join(m.path, m.Selection().Name())).
 		Int("fCount", m.visibleFileCount).
 		Msg("cusor moved")
 
@@ -291,37 +284,37 @@ func (m *Model) setDirectory(dir fs.Directory) {
 
 func (m *Model) setSelectedFile(name string) {
 	for i, file := range m.visibleFiles {
-		if file.GetDirEntry().Name() == name {
+		if file.DirEntry().Name() == name {
 			m.cursor = i
 			break
 		}
 	}
 }
 
-// IsFocusable returns true if it is possible to focus the current view
-func (m Model) IsFocusable() bool {
+// Focusable returns true if it is possible to focus the current view
+func (m Model) Focusable() bool {
 	return m.err == nil
 }
 
-// GetSelection returns the current file the cursor is over
-func (m Model) GetSelection() fss.DirEntry {
+// Selection returns the current file the cursor is over
+func (m Model) Selection() fss.DirEntry {
 	if !m.loaded {
 		return emptyDirEntry{}
 	}
-	return m.visibleFiles[m.cursor].GetDirEntry()
+	return m.visibleFiles[m.cursor].DirEntry()
 }
 
-// GetSelectedPath returns the path to the viewed directory
-func (m Model) GetPath() string {
+// Path returns the path to the model's directory
+func (m Model) Path() string {
 	return m.path
 }
 
-// GetSelectedPath returns the path to the currently selected file
-func (m Model) GetSelectedPath() string {
+// SelectedPath returns the path to the model's selected file
+func (m Model) SelectedPath() string {
 	if m.Empty() {
 		return m.path
 	}
-	return path.Join(m.path, m.GetSelection().Name())
+	return path.Join(m.path, m.Selection().Name())
 }
 
 // Empty returns true if the directory is empty to the user

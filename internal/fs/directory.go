@@ -31,14 +31,14 @@ func NewDirectory(path string) (Directory, error) {
 	// Same sort order as ls
 	sort.Slice(dir.files, func(i, j int) bool {
 		// Directories come before files
-		if dir.files[i].GetDirEntry().IsDir() && !dir.files[j].GetDirEntry().IsDir() {
+		if dir.files[i].DirEntry().IsDir() && !dir.files[j].DirEntry().IsDir() {
 			return true
-		} else if !dir.files[i].GetDirEntry().IsDir() && dir.files[j].GetDirEntry().IsDir() {
+		} else if !dir.files[i].DirEntry().IsDir() && dir.files[j].DirEntry().IsDir() {
 			return false
 		}
 
-		nameI := strings.TrimPrefix(strings.ToLower(dir.files[i].GetDirEntry().Name()), ".")
-		nameJ := strings.TrimPrefix(strings.ToLower(dir.files[j].GetDirEntry().Name()), ".")
+		nameI := strings.TrimPrefix(strings.ToLower(dir.files[i].DirEntry().Name()), ".")
+		nameJ := strings.TrimPrefix(strings.ToLower(dir.files[j].DirEntry().Name()), ".")
 		// Sort alphabetically within the same type (directories or files)
 		return nameI < nameJ
 	})

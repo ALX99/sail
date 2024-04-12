@@ -60,7 +60,7 @@ func New(state *state.State, modelCfg Config, cfg config.Config) (model, error) 
 // does not properly adjust the offset
 func (m model) Init() tea.Cmd {
 	// cd can't be initialized here since wd needs to be initialized first
-	return tea.Batch(m.wd.Init(), m.pd.InitAndSelect(path.Base(m.wd.GetPath())))
+	return tea.Batch(m.wd.Init(), m.pd.InitAndSelect(path.Base(m.wd.Path())))
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -106,7 +106,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if err != nil {
 				return m, tea.Quit
 			}
-			f.WriteString(m.wd.GetPath())
+			f.WriteString(m.wd.Path())
 			f.Close()
 			return m, tea.Quit
 
@@ -117,27 +117,27 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, m.move(dir.Down)
 
 		case m.cfg.Settings.Keybinds.NavLeft:
-			if !m.pd.IsFocusable() {
+			if !m.pd.Focusable() {
 				return m, nil
 			}
 
 			m.cacheAdd(m.cd)
 			m.cd = m.wd.ChangeRole(dir.Child)
 			m.wd = m.pd.ChangeRole(dir.Working)
-			if m.pd.GetPath() == "/" {
+			if m.pd.Path() == "/" {
 				m.pd = dir.New("", dir.Parent, m.state, m.fwWidth, m.fwHeight, m.cfg)
 			} else {
-				m.pd, _ = m.cacheTryGet(path.Dir(m.pd.GetPath()), dir.Parent)
+				m.pd, _ = m.cacheTryGet(path.Dir(m.pd.Path()), dir.Parent)
 			}
 
-			return m, m.pd.InitAndSelect(path.Base(m.wd.GetPath()))
+			return m, m.pd.InitAndSelect(path.Base(m.wd.Path()))
 
 		case m.cfg.Settings.Keybinds.NavRight:
-			if !m.cd.IsFocusable() || m.cd.Empty() {
+			if !m.cd.Focusable() || m.cd.Empty() {
 				return m, nil
 			}
-			if !m.wd.GetSelection().IsDir() {
-				cmd := exec.Command("xdg-open", m.wd.GetSelectedPath())
+			if !m.wd.Selection().IsDir() {
+				cmd := exec.Command("xdg-open", m.wd.SelectedPath())
 				return m, func() tea.Msg {
 					if err := cmd.Run(); err != nil {
 						log.Err(err).Send()
@@ -148,9 +148,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.cacheAdd(m.pd)
 			m.pd = m.wd.ChangeRole(dir.Parent)
 			m.wd = m.cd.ChangeRole(dir.Working)
-			if m.wd.GetSelection().IsDir() {
+			if m.wd.Selection().IsDir() {
 				var ok bool
-				m.cd, ok = m.cacheTryGet(m.wd.GetSelectedPath(), dir.Child)
+				m.cd, ok = m.cacheTryGet(m.wd.SelectedPath(), dir.Child)
 				if ok {
 					return m, m.cd.Reinit()
 				}
@@ -160,17 +160,17 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				// m.wd and m.cd will have the same ID and will
 				// consume the same messages
 				m.cd = dir.Model{}
-				m.preview = preview.New(m.wd.GetSelectedPath(), m.fwWidth, m.fwHeight, m.cfg)
+				m.preview = preview.New(m.wd.SelectedPath(), m.fwWidth, m.fwHeight, m.cfg)
 				return m, m.preview.Init()
 			}
 
 		case " ":
-			m.state.ToggleSelect(m.wd.GetSelectedPath())
+			m.state.ToggleSelect(m.wd.SelectedPath())
 			return m, m.move(dir.Down)
 
 		case m.cfg.Settings.Keybinds.Delete, m.cfg.Settings.Keybinds.Move:
 			if !m.state.HasSelectedFiles() {
-				m.state.ToggleSelect(m.wd.GetSelectedPath())
+				m.state.ToggleSelect(m.wd.SelectedPath())
 			}
 
 			return m, func() tea.Msg {
@@ -178,7 +178,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if msg.String() == m.cfg.Settings.Keybinds.Delete {
 					err = m.state.DeleteSelectedFiles()
 				} else {
-					err = m.state.MoveSelectedFiles(m.wd.GetPath())
+					err = m.state.MoveSelectedFiles(m.wd.Path())
 				}
 				if err != nil {
 					log.Err(err).Send()
@@ -192,7 +192,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	}
 
-	cmds := []tea.Cmd{}
+	var cmds []tea.Cmd
 	var cmd tea.Cmd
 	m.pd, cmd = m.pd.Update(msg)
 	cmds = append(cmds, cmd)
@@ -207,19 +207,19 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m *model) move(direct dir.Direction) tea.Cmd {
-	prev := m.wd.GetSelection()
-	if m.wd.Move(direct).GetSelection() == prev {
+	prev := m.wd.Selection()
+	if m.wd.Move(direct).Selection() == prev {
 		return nil // selection did not move, don't try to init a new dir
 	}
-	if m.wd.GetSelection().IsDir() {
+	if m.wd.Selection().IsDir() {
 		var ok bool
-		m.cd, ok = m.cacheAdd(m.cd).cacheTryGet(m.wd.GetSelectedPath(), dir.Child)
+		m.cd, ok = m.cacheAdd(m.cd).cacheTryGet(m.wd.SelectedPath(), dir.Child)
 		if ok {
 			return m.cd.Reinit()
 		}
 		return m.cd.Init()
-	} else if !m.wd.GetSelection().IsDir() {
-		m.preview = preview.New(m.wd.GetSelectedPath(), m.fwWidth, m.fwHeight, m.cfg)
+	} else if !m.wd.Selection().IsDir() {
+		m.preview = preview.New(m.wd.SelectedPath(), m.fwWidth, m.fwHeight, m.cfg)
 		return m.preview.Init()
 	}
 	return nil
@@ -228,9 +228,9 @@ func (m *model) move(direct dir.Direction) tea.Cmd {
 func (m model) View() string {
 	res := make([]string, 3)
 	res = append(res, m.pd.View(), m.wd.View())
-	if m.wd.GetSelection().IsDir() {
+	if m.wd.Selection().IsDir() {
 		res = append(res, m.cd.View())
-	} else if !m.wd.GetSelection().IsDir() {
+	} else if !m.wd.Selection().IsDir() {
 		res = append(res, m.preview.View())
 	}
 	if m.im.Focused() {
@@ -254,7 +254,7 @@ func (m *model) updateFWHeight(delta int) {
 
 // cacheAdd adds a directory to the cache.
 func (m *model) cacheAdd(dir dir.Model) *model {
-	m.dirCache[dir.GetPath()] = dir
+	m.dirCache[dir.Path()] = dir
 	return m
 }
 
@@ -262,7 +262,7 @@ func (m *model) cacheAdd(dir dir.Model) *model {
 // If the directory is not in the cache, it reads the directory and returns it.
 func (m *model) cacheTryGet(path string, role dir.Role) (dir.Model, bool) {
 	if dir, ok := m.dirCache[path]; ok {
-		log.Trace().Str("path", dir.GetPath()).Msg("cache hit")
+		log.Trace().Str("path", dir.Path()).Msg("cache hit")
 		return dir, true
 	}
 	return dir.New(path, role, m.state, m.fwWidth, m.fwHeight, m.cfg), false
@@ -270,8 +270,8 @@ func (m *model) cacheTryGet(path string, role dir.Role) (dir.Model, bool) {
 
 func (m model) logState() {
 	log.Debug().
-		Str("pd", m.pd.GetPath()).
-		Str("wd", m.wd.GetPath()).
-		Str("cd", m.cd.GetPath()).
+		Str("pd", m.pd.Path()).
+		Str("wd", m.wd.Path()).
+		Str("cd", m.cd.Path()).
 		Send()
 }

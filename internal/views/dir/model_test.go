@@ -30,7 +30,7 @@ func TestModel_Move(t *testing.T) {
 			start: Model{
 				state:            state,
 				h:                4,
-				cursorIndex:      0,
+				cursor:           0,
 				visibleFileCount: 10,
 				cfg:              settings,
 				logger:           logger,
@@ -38,7 +38,7 @@ func TestModel_Move(t *testing.T) {
 			want: Model{
 				state:            state,
 				h:                4,
-				cursorIndex:      0,
+				cursor:           0,
 				visibleFileCount: 10,
 				cfg:              settings,
 				logger:           logger,
@@ -53,7 +53,7 @@ func TestModel_Move(t *testing.T) {
 				state:            state,
 				h:                4,
 				offset:           6,
-				cursorIndex:      9,
+				cursor:           9,
 				visibleFileCount: 10,
 				cfg:              settings,
 				logger:           logger,
@@ -62,7 +62,7 @@ func TestModel_Move(t *testing.T) {
 				state:            state,
 				h:                4,
 				offset:           6,
-				cursorIndex:      9,
+				cursor:           9,
 				visibleFileCount: 10,
 				cfg:              settings,
 				logger:           logger,
@@ -76,7 +76,7 @@ func TestModel_Move(t *testing.T) {
 			start: Model{
 				state:            state,
 				h:                4,
-				cursorIndex:      0,
+				cursor:           0,
 				visibleFileCount: 10,
 				cfg:              settings,
 				logger:           logger,
@@ -84,7 +84,7 @@ func TestModel_Move(t *testing.T) {
 			want: Model{
 				state:            state,
 				h:                4,
-				cursorIndex:      1,
+				cursor:           1,
 				visibleFileCount: 10,
 				cfg:              settings,
 				logger:           logger,

@@ -13,7 +13,7 @@ func newFile(dEntry fs.DirEntry) File {
 	return f
 }
 
-func (f File) GetDirEntry() fs.DirEntry {
+func (f File) DirEntry() fs.DirEntry {
 	return f.dEntry
 }
 
