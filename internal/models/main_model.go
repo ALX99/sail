@@ -26,7 +26,7 @@ type dirLoaded struct {
 type clearPrevCWD struct{}
 
 type position struct {
-	c, r int
+	r, c int
 }
 
 type Model struct {
@@ -61,7 +61,7 @@ func (m Model) Init() tea.Cmd {
 
 func (m Model) cursorOffset() int {
 	// m.logCursor()
-	return m.cursor.c*m.maxRows + m.cursor.r
+	return (m.cursor.c * m.maxRows) + m.cursor.r
 }
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -85,10 +85,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case m.cfg.Settings.Keymap.NavUp:
 			m.cursor.r = max(0, m.cursor.r-1)
 		case m.cfg.Settings.Keymap.NavDown:
-			if m.cursor.c < len(m.files)/m.maxRows {
-				m.cursor.r = min(m.cursor.r+1, min(len(m.files), m.maxRows)-1)
-			} else if m.cursor.c == len(m.files)/m.maxRows {
-				m.cursor.r = min(m.cursor.r+1, len(m.files)%m.maxRows-1)
+			if m.cursor.c == 0 {
+				m.cursor.r = min(m.cursor.r+1, m.maxRows-1)
+			} else {
+				if m.cursorOffset() < len(m.files)-1 {
+					m.cursor.r = min(m.cursor.r+1, m.maxRows-1)
+				}
 			}
 			return m, nil
 
@@ -98,7 +100,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case m.cfg.Settings.Keymap.NavRight:
 			m.cursor.c++
 			if m.cursorOffset() >= len(m.files) {
-				m.cursor.c-- // undo the cursor move
+				m.cursor.c--
 			}
 			return m, nil
 		case m.cfg.Settings.Keymap.NavOut:
@@ -120,13 +122,35 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		m.maxRows = min(defaultMaxRows, max(1, msg.Height-3))
 
-		m.trySelectFile(m.files, fName)
+		m.trySelectFile(fName)
 
 		return m, nil
 
 	case dirLoaded:
 		oldDir := m.cwd
 		newDir := msg.path
+
+		/// special case
+		if oldDir == newDir {
+			m.files = msg.files
+			if len(m.files) > 0 {
+				name, ok := m.cachedDirSelections[newDir]
+				if ok {
+					m.trySelectFile(name)
+					if m.cursor.r == 0 && m.cursor.c == 0 {
+						delete(m.cachedDirSelections, newDir)
+					}
+				} else {
+					m.trySelectFile(m.files[min(m.cursorOffset(), len(m.files)-1)].Name())
+				}
+				m.cachedDirSelections[newDir] = m.files[m.cursorOffset()].Name()
+			} else {
+				delete(m.cachedDirSelections, newDir)
+				m.setCursor(0, 0)
+			}
+			return m, nil
+		}
+
 		if m.prevCWD == "" && oldDir != newDir {
 			m.prevCWD = oldDir
 		}
@@ -145,7 +169,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			fName = path.Base(oldDir)
 		}
 
-		m.trySelectFile(m.files, fName)
+		m.trySelectFile(fName)
 		m.clearAnimAt = time.Now().Add(pathAnimDuration)
 
 		return m, func() tea.Msg {
@@ -251,23 +275,23 @@ func (m Model) loadDir(path string) tea.Cmd {
 }
 
 func (m Model) logCursor() {
-	log.Debug().Msgf("cursor.r: %v, cursor.c: %v, maxRows: %v", m.cursor.r, m.cursor.c, m.maxRows)
+	log.Debug().Msgf("cursor(%v, %v)", m.cursor.c, m.cursor.r)
 }
 
 func (m *Model) setCursor(r, c int) {
-	m.cursor.r = r
-	m.cursor.c = c
+	m.cursor.c = r
+	m.cursor.r = c
 }
 
 // trySelectFile tries to select a file by name or sets the cursor to the first file
 // if the file is not found.
-func (m *Model) trySelectFile(files []fs.DirEntry, fName string) {
-	index := slices.IndexFunc(files, func(dir fs.DirEntry) bool {
+func (m *Model) trySelectFile(fName string) {
+	index := slices.IndexFunc(m.files, func(dir fs.DirEntry) bool {
 		return dir.Name() == fName
 	})
 
 	if index != -1 {
-		m.setCursor(index%m.maxRows, index/m.maxRows)
+		m.setCursor(index/m.maxRows, index%m.maxRows)
 	} else {
 		m.setCursor(0, 0)
 	}
