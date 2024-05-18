@@ -184,11 +184,18 @@ func (m Model) View() string {
 			if m.cursor.r == row && m.cursor.c == col {
 				m.sb.WriteString(">")
 			}
-			extraPadding := maxColNameLen[col] - len(f.Name()) + 2
 
-			if m.cursor.r == row && m.cursor.c == col {
-				extraPadding--
+			extraPadding := 0
+
+			// only pad if the column is not the last column
+			if col < len(grid[row]) {
+				extraPadding = maxColNameLen[col] - len(f.Name()) + 2
+
+				if m.cursor.r == row && m.cursor.c == col {
+					extraPadding--
+				}
 			}
+
 			m.sb.WriteString(util.GetStyle(f).
 				PaddingRight(extraPadding).
 				Render(f.Name()))
