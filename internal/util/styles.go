@@ -74,7 +74,7 @@ func parseStyle(s string) (string, lipgloss.Style, error) {
 	// with a map[regex]style variable.
 	if len(split) != 2 {
 		return "", st, errors.New("invalid entry" + s)
-	} else if !slices.Contains(keys, split[0]) && split[0][0:2] != "*." {
+	} else if !slices.Contains(keys, split[0]) && split[0][0:2] != "*." && split[0][0] != '*' {
 		return "", st, errors.New("unsupported entry " + s)
 	}
 
@@ -205,6 +205,12 @@ func GetStyle(dirEntry fs.DirEntry) lipgloss.Style {
 		k = "*" + filepath.Ext(dirEntry.Name()) // Try to match against *.pattern
 	}
 
+	if s, ok := styles[k]; ok {
+		return s
+	}
+
+	// try to match against *pattern
+	k = "*" + dirEntry.Name()
 	if s, ok := styles[k]; ok {
 		return s
 	}
