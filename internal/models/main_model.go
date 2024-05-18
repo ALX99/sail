@@ -62,6 +62,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "ctrl+c", "q":
+			if m.cfg.PrintLastWD != "" {
+				err := m.writeLastWD()
+				if err != nil {
+					log.Error().Err(err).Send()
+				}
+			}
 			return m, tea.Quit
 
 		case m.cfg.Settings.Keymap.NavUp:
@@ -198,4 +204,15 @@ func (m *Model) trySelectFile(files []fs.DirEntry, fName string) {
 	} else {
 		m.setCursor(0, 0)
 	}
+}
+
+func (m Model) writeLastWD() error {
+	f, err := os.Create(m.cfg.PrintLastWD)
+	if err != nil {
+		return err
+	}
+
+	defer f.Close()
+	_, err = f.WriteString(m.cwd)
+	return err
 }

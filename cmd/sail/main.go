@@ -12,11 +12,11 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-var pwdFile *string
+var printLastWD *string
 
 // init parses the command line flags
 func init() {
-	pwdFile = flag.String("write-pwd", "", "file to write the last working directory to")
+	printLastWD = flag.String("write-wd", "", "Write the last working directory to the given file")
 	flag.Parse()
 }
 
@@ -26,6 +26,7 @@ func main() {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		os.Exit(1)
 	}
+	cfg.PrintLastWD = *printLastWD
 
 	util.SetupLogger()
 	log.Info().Msg("Sail started")

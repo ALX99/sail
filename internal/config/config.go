@@ -9,7 +9,8 @@ import (
 
 // Config represents all of the configuration options
 type Config struct {
-	Settings Settings `yaml:"settings"`
+	Settings    Settings `yaml:"settings"`
+	PrintLastWD string
 }
 
 type Settings struct {
