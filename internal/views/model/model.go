@@ -26,12 +26,11 @@ type position struct {
 type Model struct {
 	cfg config.Config
 
-	cwd          string              // current working directory
-	files        []fs.DirEntry       // current files in that directory
-	cursor       position            // cursor
-	positions    map[string]position // previous positions
-	tCols, tRows int                 // terminal dimensions
-	maxRows      int
+	cwd                 string            // current working directory
+	files               []fs.DirEntry     // current files in that directory
+	cursor              position          // cursor
+	cachedDirSelections map[string]string // cached file names for directories
+	maxRows             int
 
 	// for performance purposes
 	sb strings.Builder
@@ -39,11 +38,11 @@ type Model struct {
 
 func New(cwd string, cfg config.Config) Model {
 	return Model{
-		cwd:       cwd,
-		cfg:       cfg,
-		maxRows:   10,
-		positions: make(map[string]position, 100),
-		sb:        strings.Builder{},
+		cwd:                 cwd,
+		cfg:                 cfg,
+		maxRows:             10,
+		cachedDirSelections: make(map[string]string, 100),
+		sb:                  strings.Builder{},
 	}
 }
 
@@ -96,33 +95,27 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			fName = m.files[m.cursorOffset()].Name()
 		}
 
-		m.tCols, m.tRows = msg.Width, msg.Height
-		m.maxRows = min(10, max(1, m.tRows-3))
+		m.maxRows = min(10, max(1, msg.Height-3))
 
 		m.trySelectFile(m.files, fName)
 
 		return m, nil
 
 	case dirLoaded:
-		m.positions[m.cwd] = m.cursor // save old cursor pos
+		if len(m.files) > 0 {
+			// cache the selected file for the previous directory
+			m.cachedDirSelections[m.cwd] = m.files[m.cursorOffset()].Name()
+		}
 
-		if cursor, ok := m.positions[msg.path]; ok {
-			log.Debug().Msgf("cache hit for %v: cursor.r: %v, cursor.c: %v", msg.path, cursor.r, cursor.c)
-			m.cursor = cursor
-
-			// sanity check in case the files has decreased
-			if m.cursorOffset() >= len(msg.files) {
-				m.setCursor(0, 0)
-			}
-		} else {
-			log.Debug().Msgf("cache miss for %v", msg.path)
-
-			prevDirName := strings.TrimLeft(m.cwd, path.Dir(m.cwd))
-			m.trySelectFile(msg.files, prevDirName)
+		fName, ok := m.cachedDirSelections[msg.path]
+		if !ok {
+			// Try to determine the previous file name
+			fName = strings.TrimLeft(m.cwd, path.Dir(m.cwd))
 		}
 
 		m.cwd = msg.path
 		m.files = msg.files
+		m.trySelectFile(m.files, fName)
 
 		return m, nil
 	case error:
