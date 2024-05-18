@@ -21,15 +21,16 @@ func init() {
 }
 
 func main() {
-	util.SetupLogger()
-	log.Info().Msg("Sail started")
-
-	util.SetupStyles()
 	cfg, err := config.GetConfig()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		os.Exit(1)
 	}
+
+	util.SetupLogger()
+	log.Info().Msg("Sail started")
+
+	util.SetupStyles()
 
 	// m, err := primary.New(state.NewState(), primary.Config{PWDFile: *pwdFile}, cfg)
 	// if err != nil {
