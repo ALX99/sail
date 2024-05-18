@@ -12,15 +12,26 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-var printLastWD *string
+var (
+	printVersion *bool
+	printLastWD  *string
+
+	version = "0.0.0-dev" // set by goreleaser
+)
 
 // init parses the command line flags
 func init() {
 	printLastWD = flag.String("write-wd", "", "Write the last working directory to the given file")
+	printVersion = flag.Bool("version", false, "Print the version")
 	flag.Parse()
 }
 
 func main() {
+	if *printVersion {
+		fmt.Println(version)
+		os.Exit(0)
+	}
+
 	cfg, err := config.GetConfig()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
