@@ -4,6 +4,7 @@ import (
 	"io/fs"
 	"os"
 	"path"
+	"slices"
 	"strings"
 
 	"github.com/alx99/fly/internal/config"
@@ -93,23 +94,40 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		}
 	case dirLoaded:
-		m.positions[m.cwd] = m.cursor
+		m.positions[m.cwd] = m.cursor // save old cursor pos
 
-		m.files = msg.files
-		m.cwd = msg.path
-
-		if cursor, ok := m.positions[m.cwd]; ok {
+		if cursor, ok := m.positions[msg.path]; ok {
+			log.Debug().Msgf("cache hit for %v: cursor.r: %v, cursor.c: %v", msg.path, cursor.r, cursor.c)
 			m.cursor = cursor
 
 			// sanity check in case the files has decreased
-			if m.cursorOffset() >= len(m.files) {
+			if m.cursorOffset() >= len(msg.files) {
 				m.cursor.r = 0
 				m.cursor.c = 0
 			}
 		} else {
-			m.cursor.r = 0
-			m.cursor.c = 0
+			log.Debug().Msgf("cache miss for %v", msg.path)
+
+			prevDir := strings.TrimLeft(m.cwd, path.Dir(m.cwd))
+
+			index := slices.IndexFunc(msg.files, func(dir fs.DirEntry) bool {
+				return dir.Name() == prevDir
+			})
+
+			if index != -1 {
+				m.cursor.c = index / m.maxRows
+				m.cursor.r = index % m.maxRows
+			} else {
+				m.cursor.c = 0
+				m.cursor.r = 0
+			}
+
 		}
+
+		m.cwd = msg.path
+		m.files = msg.files
+
+		return m, nil
 	case error:
 		log.Error().Err(msg).Msg("Error occurred")
 	}
