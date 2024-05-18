@@ -104,16 +104,17 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case m.cfg.Settings.Keymap.NavOut:
 			return m, m.loadDir(path.Dir(m.cwd))
 		case m.cfg.Settings.Keymap.NavIn:
-			if m.files != nil && m.files[m.cursorOffset()].IsDir() {
+			if len(m.files) > 0 && m.files[m.cursorOffset()].IsDir() {
 				return m, m.loadDir(path.Join(m.cwd, m.files[m.cursorOffset()].Name()))
 			}
 		case m.cfg.Settings.Keymap.NavHome:
 			return m, m.loadDir(os.Getenv("HOME"))
+			// case "d":
 
 		}
 	case tea.WindowSizeMsg:
 		var fName string
-		if m.files != nil && len(m.files) > 0 {
+		if len(m.files) > 0 {
 			fName = m.files[m.cursorOffset()].Name()
 		}
 
