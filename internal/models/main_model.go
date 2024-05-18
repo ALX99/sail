@@ -11,6 +11,7 @@ import (
 	"github.com/alx99/sail/internal/config"
 	"github.com/alx99/sail/internal/util"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/rs/zerolog/log"
 )
 
@@ -33,6 +34,7 @@ type Model struct {
 	cursor              position          // cursor
 	cachedDirSelections map[string]string // cached file names for directories
 	numRows             int               // the number of rows to display
+	lastError           error             // last error that occurred
 
 	// for performance purposes
 	sb strings.Builder
@@ -58,6 +60,11 @@ func (m Model) cursorOffset() int {
 }
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	// clear the last error
+	if m.lastError != nil {
+		m.lastError = nil
+	}
+
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.String() {
@@ -144,7 +151,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		return m, nil
 	case error:
+		m.lastError = msg
 		log.Error().Err(msg).Msg("Error occurred")
+		return m, nil
 	}
 
 	return m, nil
@@ -185,6 +194,12 @@ func (m Model) View() string {
 				Render(f.Name()))
 		}
 		m.sb.WriteString("\n")
+
+		if row == len(grid)-1 {
+			if m.lastError != nil {
+				m.sb.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("#ff0000")).Render(m.lastError.Error()))
+			}
+		}
 	}
 
 	return m.sb.String()

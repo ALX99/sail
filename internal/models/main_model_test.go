@@ -1,6 +1,7 @@
 package models
 
 import (
+	"errors"
 	"io/fs"
 	"reflect"
 	"strings"
@@ -36,6 +37,7 @@ func TestModel_Update(t *testing.T) {
 		cachedDirSelections map[string]string
 		numRows             int
 		sb                  strings.Builder
+		lastError           error
 	}
 	type args struct {
 		msg tea.Msg
@@ -392,6 +394,29 @@ func TestModel_Update(t *testing.T) {
 				numRows:             1,
 			},
 		},
+		{
+			name: "Test lastError is cleared on update",
+			fields: fields{
+				cfg:                 config.Config{},
+				cwd:                 "/testpath",
+				files:               []fs.DirEntry{},
+				cursor:              position{},
+				cachedDirSelections: map[string]string{},
+				numRows:             10,
+				lastError:           errors.New("previous error"),
+			},
+			args: args{
+				msg: tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'s'}},
+			},
+			want: Model{
+				cfg:                 config.Config{},
+				cwd:                 "/testpath",
+				files:               []fs.DirEntry{},
+				cursor:              position{},
+				cachedDirSelections: map[string]string{},
+				numRows:             10,
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -403,6 +428,7 @@ func TestModel_Update(t *testing.T) {
 				cachedDirSelections: tt.fields.cachedDirSelections,
 				numRows:             tt.fields.numRows,
 				sb:                  tt.fields.sb,
+				lastError:           tt.fields.lastError,
 			}
 
 			iface, got1 := m.Update(tt.args.msg)
