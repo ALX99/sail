@@ -125,24 +125,24 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case dirLoaded:
-		prevDir := m.cwd
+		oldDir := m.cwd
 		newDir := msg.path
-		if m.prevCWD == "" && prevDir != newDir {
-			m.prevCWD = prevDir
+		if m.prevCWD == "" && oldDir != newDir {
+			m.prevCWD = oldDir
 		}
 		if len(m.files) > 0 {
 			// cache the selected file for the previous directory
-			m.cachedDirSelections[prevDir] = m.files[m.cursorOffset()].Name()
+			m.cachedDirSelections[oldDir] = m.files[m.cursorOffset()].Name()
 		}
 
 		m.cwd = newDir
 		m.files = msg.files
 
 		fName, ok := m.cachedDirSelections[newDir]
-		if !ok && path.Join(newDir, path.Base(prevDir)) == prevDir {
+		if !ok && path.Join(newDir, path.Base(oldDir)) == oldDir {
 			// in case of a navigation to the parent directory
 			// select the parent directory in the parent directory
-			fName = path.Base(prevDir)
+			fName = path.Base(oldDir)
 		}
 
 		m.trySelectFile(m.files, fName)
