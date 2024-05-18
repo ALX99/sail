@@ -17,6 +17,7 @@ var (
 	printLastWD  *string
 
 	version = "0.0.0-dev" // set by goreleaser
+	isDev   = version == "0.0.0-dev"
 )
 
 // init parses the command line flags
@@ -39,7 +40,12 @@ func main() {
 	}
 	cfg.PrintLastWD = *printLastWD
 
-	util.SetupLogger()
+	flush := util.SetupLogger(!isDev)
+	defer func() {
+		if err = flush(); err != nil {
+			fmt.Fprintln(os.Stderr, "failed to flush log: "+err.Error())
+		}
+	}()
 	log.Info().Msg("Sail started")
 
 	util.SetupStyles()
