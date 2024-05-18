@@ -111,8 +111,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		fName, ok := m.cachedDirSelections[msg.path]
 		if !ok {
-			// Try to determine the previous file name
-			fName = strings.TrimLeft(m.cwd, path.Dir(m.cwd))
+			// try to determine the previous file name
+			fName = path.Base(m.cwd)
 		}
 
 		m.cwd = msg.path
