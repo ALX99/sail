@@ -6,6 +6,7 @@ import (
 	"path"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/alx99/fly/internal/config"
 	"github.com/alx99/fly/internal/util"
@@ -50,12 +51,8 @@ func (m Model) Init() tea.Cmd {
 	return m.loadDir(m.cwd)
 }
 
-func (m Model) logCursor() {
-	log.Debug().Msgf("cursor.r: %v, cursor.c: %v, maxRows: %v", m.cursor.r, m.cursor.c, m.maxRows)
-}
-
 func (m Model) cursorOffset() int {
-	m.logCursor()
+	// m.logCursor()
 	return m.cursor.c*m.maxRows + m.cursor.r
 }
 
@@ -102,8 +99,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 			// sanity check in case the files has decreased
 			if m.cursorOffset() >= len(msg.files) {
-				m.cursor.r = 0
-				m.cursor.c = 0
+				m.setCursor(0, 0)
 			}
 		} else {
 			log.Debug().Msgf("cache miss for %v", msg.path)
@@ -115,11 +111,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			})
 
 			if index != -1 {
-				m.cursor.c = index / m.maxRows
-				m.cursor.r = index % m.maxRows
+				m.setCursor(index%m.maxRows, index/m.maxRows)
 			} else {
-				m.cursor.c = 0
-				m.cursor.r = 0
+				m.setCursor(0, 0)
 			}
 
 		}
@@ -136,6 +130,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m Model) View() string {
+	t := time.Now()
+	defer func() { log.Debug().Msgf("Rendered in %v", time.Since(t)) }()
 	m.sb.Reset()
 	m.sb.WriteString(m.cwd + "\n\n")
 
@@ -181,4 +177,13 @@ func (m Model) loadDir(path string) tea.Cmd {
 		}
 		return dirLoaded{files: files, path: path}
 	}
+}
+
+func (m Model) logCursor() {
+	log.Debug().Msgf("cursor.r: %v, cursor.c: %v, maxRows: %v", m.cursor.r, m.cursor.c, m.maxRows)
+}
+
+func (m *Model) setCursor(r, c int) {
+	m.cursor.r = r
+	m.cursor.c = c
 }
