@@ -13,9 +13,7 @@ type Config struct {
 }
 
 type Settings struct {
-	ScrollPadding   int      `yaml:"scrollPadding"`
-	ShowHiddenFiles bool     `yaml:"showHiddenFiles"`
-	Keybinds        Keybinds `yaml:"keybinds"`
+	Keybinds Keybinds `yaml:"keybinds"`
 }
 type Keybinds struct {
 	NavUp    string `yaml:"up"`
@@ -24,8 +22,6 @@ type Keybinds struct {
 	NavRight string `yaml:"right"`
 	NavIn    string `yaml:"in"`
 	NavOut   string `yaml:"out"`
-	Delete   string `yaml:"delete"`
-	Move     string `yaml:"move"`
 }
 
 // GetConfig reads, pareses and returns the configuration
@@ -33,15 +29,11 @@ func GetConfig() (Config, error) {
 	// Sane defaults
 	cfg := Config{
 		Settings: Settings{
-			ScrollPadding:   2,
-			ShowHiddenFiles: false,
 			Keybinds: Keybinds{
 				NavLeft:  "h",
 				NavDown:  "j",
 				NavUp:    "k",
 				NavRight: "l",
-				Delete:   "d",
-				Move:     "p",
 				NavIn:    ".",
 				NavOut:   ",",
 			},
