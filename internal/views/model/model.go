@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/alx99/fly/internal/config"
-	"github.com/alx99/fly/internal/util"
+	"github.com/alx99/sail/internal/config"
+	"github.com/alx99/sail/internal/util"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/rs/zerolog/log"
 )

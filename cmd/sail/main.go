@@ -4,9 +4,9 @@ import (
 	"flag"
 	"os"
 
-	"github.com/alx99/fly/internal/config"
-	"github.com/alx99/fly/internal/util"
-	"github.com/alx99/fly/internal/views/model"
+	"github.com/alx99/sail/internal/config"
+	"github.com/alx99/sail/internal/util"
+	"github.com/alx99/sail/internal/views/model"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/rs/zerolog/log"
 )
@@ -21,7 +21,7 @@ func init() {
 
 func main() {
 	util.SetupLogger()
-	log.Info().Msg("Fly started")
+	log.Info().Msg("Sail started")
 
 	util.SetupStyles()
 	cfg, err := config.GetConfig()

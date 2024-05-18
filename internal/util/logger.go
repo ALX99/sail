@@ -14,7 +14,7 @@ import (
 
 // SetupLogger sets up the global logger
 func SetupLogger() {
-	fPath := path.Join(os.TempDir(), "fly.log")
+	fPath := path.Join(os.TempDir(), "sail.log")
 	f, err := os.Create(fPath)
 	if err != nil {
 		panic(err)

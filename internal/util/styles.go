@@ -175,11 +175,11 @@ func GetStyle(dirEntry fs.DirEntry) lipgloss.Style {
 	case dirEntry.IsDir():
 		k = "di"
 		switch {
-		case m&os.ModeSticky != 0 && m&0002 != 0:
+		case m&os.ModeSticky != 0 && m&0o002 != 0:
 			k = "tw"
 		case m&os.ModeSticky != 0:
 			k = "st"
-		case m&0002 != 0:
+		case m&0o002 != 0:
 			k = "ow"
 		}
 	case m&os.ModeSymlink != 0:
@@ -195,7 +195,7 @@ func GetStyle(dirEntry fs.DirEntry) lipgloss.Style {
 		k = "so"
 	case m&os.ModeDevice != 0:
 		k = "bd"
-	case m.IsRegular() && m&0111 != 0:
+	case m.IsRegular() && m&0o111 != 0:
 		k = "ex"
 	case m&os.ModeNamedPipe != 0:
 		k = "pi"

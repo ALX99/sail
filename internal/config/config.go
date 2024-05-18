@@ -60,8 +60,8 @@ func GetConfig() (Config, error) {
 func getCfgFileLoc() string {
 	dir := os.Getenv("XDG_CONFIG_HOME")
 	if dir != "" {
-		return path.Join(path.Clean(dir), "fly") + "/config.yaml"
+		return path.Join(path.Clean(dir), "sail") + "/config.yaml"
 	}
 
-	return "~/.config/fly/config.yaml"
+	return "~/.config/sail/config.yaml"
 }

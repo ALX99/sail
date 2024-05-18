@@ -1,4 +1,4 @@
-module github.com/alx99/fly
+module github.com/alx99/sail
 
 go 1.22.3
 
