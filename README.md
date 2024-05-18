@@ -40,6 +40,22 @@ This project is inspired by the [lf](https://github.com/gokcehan/lf) file manage
 
 ## Usage
 
+### Configuration
+
+Sail tries to locate the config file at `$XDG_CONFIG_HOME/sail/config.yaml` or `$HOME/.config/sail/config.yaml` if `XDG_CONFIG_HOME` is not set.
+If the file is not found, it will use the following default configuration:
+
+```yaml
+settings:
+  keymap:
+    left: "h"
+    up: "j"
+    down: "k"
+    right: "l"
+    in: "."
+    out: ","
+```
+
 ### Using sail as a cd replacement
 
 Sail can be used as a replacement for the `cd` command. To do so, you can put the following in your `.bashrc` or `.zshrc`:
