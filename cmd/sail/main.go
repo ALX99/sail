@@ -6,8 +6,8 @@ import (
 	"os"
 
 	"github.com/alx99/sail/internal/config"
+	"github.com/alx99/sail/internal/models"
 	"github.com/alx99/sail/internal/util"
-	"github.com/alx99/sail/internal/views/model"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/rs/zerolog/log"
 )
@@ -42,7 +42,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	_, err = tea.NewProgram(model.New(cwd, cfg)).Run()
+	_, err = tea.NewProgram(models.NewMain(cwd, cfg)).Run()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		os.Exit(1)

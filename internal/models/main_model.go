@@ -1,4 +1,4 @@
-package model
+package models
 
 import (
 	"io/fs"
@@ -38,7 +38,7 @@ type Model struct {
 	sb strings.Builder
 }
 
-func New(cwd string, cfg config.Config) Model {
+func NewMain(cwd string, cfg config.Config) Model {
 	return Model{
 		cwd:                 cwd,
 		cfg:                 cfg,
