@@ -64,9 +64,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "ctrl+c", "q":
 			return m, tea.Quit
 
-		case m.cfg.Settings.Keybinds.NavUp:
+		case m.cfg.Settings.Keymap.NavUp:
 			m.cursor.r = max(0, m.cursor.r-1)
-		case m.cfg.Settings.Keybinds.NavDown:
+		case m.cfg.Settings.Keymap.NavDown:
 			if m.cursor.c < len(m.files)/m.numRows {
 				m.cursor.r = min(m.cursor.r+1, min(len(m.files), m.numRows)-1)
 			} else if m.cursor.c == len(m.files)/m.numRows {
@@ -74,18 +74,18 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return m, nil
 
-		case m.cfg.Settings.Keybinds.NavLeft:
+		case m.cfg.Settings.Keymap.NavLeft:
 			m.cursor.c = max(0, m.cursor.c-1)
 			return m, nil
-		case m.cfg.Settings.Keybinds.NavRight:
+		case m.cfg.Settings.Keymap.NavRight:
 			m.cursor.c++
 			if m.cursorOffset() >= len(m.files) {
 				m.cursor.c-- // undo the cursor move
 			}
 			return m, nil
-		case m.cfg.Settings.Keybinds.NavOut:
+		case m.cfg.Settings.Keymap.NavOut:
 			return m, m.loadDir(path.Dir(m.cwd))
-		case m.cfg.Settings.Keybinds.NavIn:
+		case m.cfg.Settings.Keymap.NavIn:
 			if m.files != nil && m.files[m.cursorOffset()].IsDir() {
 				return m, m.loadDir(path.Join(m.cwd, m.files[m.cursorOffset()].Name()))
 			}

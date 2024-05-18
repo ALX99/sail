@@ -13,9 +13,9 @@ type Config struct {
 }
 
 type Settings struct {
-	Keybinds Keybinds `yaml:"keybinds"`
+	Keymap Keymap `yaml:"keymap"`
 }
-type Keybinds struct {
+type Keymap struct {
 	NavUp    string `yaml:"up"`
 	NavDown  string `yaml:"down"`
 	NavLeft  string `yaml:"left"`
@@ -29,7 +29,7 @@ func GetConfig() (Config, error) {
 	// Sane defaults
 	cfg := Config{
 		Settings: Settings{
-			Keybinds: Keybinds{
+			Keymap: Keymap{
 				NavLeft:  "h",
 				NavDown:  "j",
 				NavUp:    "k",
