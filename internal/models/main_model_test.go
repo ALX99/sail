@@ -45,14 +45,12 @@ func TestModel_Update(t *testing.T) {
 		msg tea.Msg
 	}
 	tests := []struct {
-		name         string
-		fields       fields
-		args         args
-		filesMock    []dirEntry
-		filesErrMock error
-		want         Model
-		want1Nil     bool
-		want1Result  tea.Msg
+		name       string
+		fields     fields
+		args       args
+		want       Model
+		wantMsgs   []tea.Msg
+		filterMsgs []tea.Msg // msgs not to resend to model
 	}{
 		{
 			name: "Test special case",
@@ -83,7 +81,7 @@ func TestModel_Update(t *testing.T) {
 				maxRows:             10,
 				prevCWD:             "/go",
 			},
-			want1Result: clearPrevCWD{},
+			filterMsgs: []tea.Msg{clearPrevCWD{}},
 		},
 		{
 			name: "Test cached filename exists",
@@ -114,7 +112,7 @@ func TestModel_Update(t *testing.T) {
 				maxRows:             10,
 				prevCWD:             "/currpath",
 			},
-			want1Result: clearPrevCWD{},
+			filterMsgs: []tea.Msg{clearPrevCWD{}},
 		},
 		{
 			name: "Test adding directories to cachedDirSelections",
@@ -141,7 +139,7 @@ func TestModel_Update(t *testing.T) {
 				maxRows:             10,
 				prevCWD:             "/testpath",
 			},
-			want1Result: clearPrevCWD{},
+			filterMsgs: []tea.Msg{clearPrevCWD{}},
 		},
 		{
 			name: "Test NavUp functionality",
@@ -174,7 +172,6 @@ func TestModel_Update(t *testing.T) {
 				cachedDirSelections: map[string]string{},
 				maxRows:             10,
 			},
-			want1Nil: true,
 		},
 		{
 			name: "Test NavUp when cursor is at the top",
@@ -209,7 +206,6 @@ func TestModel_Update(t *testing.T) {
 				cachedDirSelections: map[string]string{},
 				maxRows:             10,
 			},
-			want1Nil: true,
 		},
 		{
 			name: "Test NavDown functionality",
@@ -242,7 +238,6 @@ func TestModel_Update(t *testing.T) {
 				cachedDirSelections: map[string]string{},
 				maxRows:             10,
 			},
-			want1Nil: true,
 		},
 		{
 			name: "Test NavDown functionality when already at the bottom",
@@ -275,7 +270,6 @@ func TestModel_Update(t *testing.T) {
 				cachedDirSelections: map[string]string{},
 				maxRows:             10,
 			},
-			want1Nil: true,
 		},
 		{
 			name: "Test NavDown functionality when cursor is at the bottom of the current row",
@@ -310,7 +304,6 @@ func TestModel_Update(t *testing.T) {
 				cachedDirSelections: map[string]string{},
 				maxRows:             2,
 			},
-			want1Nil: true,
 		},
 		{
 			name: "Test NavLeft",
@@ -343,7 +336,6 @@ func TestModel_Update(t *testing.T) {
 				cachedDirSelections: map[string]string{},
 				maxRows:             1,
 			},
-			want1Nil: true,
 		},
 		{
 			name: "Test NavRight",
@@ -376,7 +368,6 @@ func TestModel_Update(t *testing.T) {
 				cachedDirSelections: map[string]string{},
 				maxRows:             1,
 			},
-			want1Nil: true,
 		},
 		{
 			name: "Test NavRight when cursor is at the last column",
@@ -409,7 +400,6 @@ func TestModel_Update(t *testing.T) {
 				cachedDirSelections: map[string]string{},
 				maxRows:             1,
 			},
-			want1Nil: true,
 		},
 		{
 			name: "Test lastError is cleared on update",
@@ -433,7 +423,6 @@ func TestModel_Update(t *testing.T) {
 				cachedDirSelections: map[string]string{},
 				maxRows:             10,
 			},
-			want1Nil: true,
 		},
 		{
 			name: "Load same directory",
@@ -461,7 +450,6 @@ func TestModel_Update(t *testing.T) {
 				cachedDirSelections: map[string]string{"/special": "specialDir"},
 				maxRows:             10,
 			},
-			want1Nil: true,
 		},
 		{
 			name: "Load same directory when files deleted",
@@ -488,7 +476,6 @@ func TestModel_Update(t *testing.T) {
 				cachedDirSelections: map[string]string{},
 				maxRows:             1,
 			},
-			want1Nil: true,
 		},
 		{
 			name: "Load same directory when previous selected files deleted",
@@ -522,7 +509,6 @@ func TestModel_Update(t *testing.T) {
 				cachedDirSelections: map[string]string{"/special": "file2"},
 				maxRows:             1,
 			},
-			want1Nil: true,
 		},
 	}
 	for _, tt := range tests {
@@ -538,27 +524,54 @@ func TestModel_Update(t *testing.T) {
 				lastError:           tt.fields.lastError,
 			}
 
-			iface, got1 := m.Update(tt.args.msg)
+			var cmd tea.Cmd
+			var gotMsgs []tea.Msg
+			var iface tea.Model = m
+			msg := tt.args.msg
+			for {
+				iface, cmd = iface.Update(msg)
+				if cmd == nil {
+					break
+				}
+
+				msg = cmd()
+				if msg == nil {
+					break
+				}
+
+				if shouldIgnoreMsg(msg, tt.filterMsgs) {
+					break
+				}
+				gotMsgs = append(gotMsgs, msg)
+			}
+
+			for i, msg := range gotMsgs {
+				if len(tt.wantMsgs) <= i {
+					t.Errorf("Model.Update() gotMsgs = %v, wantMsgs %v", gotMsgs, tt.wantMsgs)
+				} else if !reflect.DeepEqual(msg, tt.wantMsgs[i]) {
+					t.Errorf("Model.Update() gotMsgs = %v, wantMsgs %v", gotMsgs, tt.wantMsgs)
+				}
+			}
 
 			got := iface.(Model)
 			got.clearAnimAt = time.Time{} // don't test timings
 
+			if got.cursor.r != tt.want.cursor.r || got.cursor.c != tt.want.cursor.c {
+				t.Errorf("Model.Update() got cursor = %+v, want cursor %+v", got.cursor, tt.want.cursor)
+			}
+
 			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("Model.Update() got = %v, want %v", got, tt.want)
-			}
-
-			if (got1 == nil) != tt.want1Nil {
-				t.Errorf("got1() = %v, want1Nil %v", got1, tt.want1Nil)
-			}
-
-			var got1Result tea.Msg
-			if got1 != nil {
-				got1Result = got1()
-			}
-
-			if !reflect.DeepEqual(got1Result, tt.want1Result) {
-				t.Errorf("got1() got1Result = %v, want1 %v", got1Result, tt.want1Result)
+				t.Errorf("Model.Update() got, want:\n%v\n%v\n", got, tt.want)
 			}
 		})
 	}
+}
+
+func shouldIgnoreMsg(msg tea.Msg, filterMsgs []tea.Msg) bool {
+	for _, fMsg := range filterMsgs {
+		if reflect.DeepEqual(fMsg, msg) {
+			return true
+		}
+	}
+	return false
 }
