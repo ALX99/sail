@@ -69,6 +69,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if m.lastError != nil {
 		m.lastError = nil
 	}
+	defer func() {
+		m.logCursor()
+	}()
 
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
@@ -111,7 +114,19 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		case m.cfg.Settings.Keymap.NavHome:
 			return m, m.loadDir(os.Getenv("HOME"))
-			// case "d":
+		case m.cfg.Settings.Keymap.Delete:
+			if len(m.files) > 0 {
+				// we optimistically believe that the file will be deleted
+				delete(m.cachedDirSelections, m.cwd)
+
+				return m, sequentially(
+					func() tea.Msg {
+						return removeFile(path.Join(m.cwd, m.files[m.cursorOffset()].Name()))
+					},
+					m.loadDir(m.cwd),
+				)
+			}
+			return m, nil
 
 		}
 	case tea.WindowSizeMsg:
@@ -266,7 +281,7 @@ func (m Model) View() string {
 
 func (m Model) loadDir(path string) tea.Cmd {
 	return func() tea.Msg {
-		files, err := os.ReadDir(path)
+		files, err := readDir(path)
 		if err != nil {
 			return err
 		}
@@ -306,4 +321,21 @@ func (m Model) writeLastWD() error {
 	defer f.Close()
 	_, err = f.WriteString(m.cwd)
 	return err
+}
+
+// sequentially produces a command that sequentially executes the given
+// commands.
+// The tea.Msg returned is the first non-nil message returned by a Cmd.
+func sequentially(cmds ...tea.Cmd) tea.Cmd {
+	return func() tea.Msg {
+		for _, cmd := range cmds {
+			if cmd == nil {
+				continue
+			}
+			if msg := cmd(); msg != nil {
+				return msg
+			}
+		}
+		return nil
+	}
 }

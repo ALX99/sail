@@ -4,6 +4,7 @@ import (
 	"errors"
 	"io/fs"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -44,12 +45,18 @@ func TestModel_Update(t *testing.T) {
 	type args struct {
 		msg tea.Msg
 	}
+	type mocks struct {
+		removeFile func(Model) func(string) error
+		readDir    func(Model) func(string) ([]fs.DirEntry, error)
+	}
+
 	tests := []struct {
 		name       string
 		fields     fields
 		args       args
 		want       Model
 		wantMsgs   []tea.Msg
+		mocks      mocks
 		filterMsgs []tea.Msg // msgs not to resend to model
 	}{
 		{
@@ -510,6 +517,110 @@ func TestModel_Update(t *testing.T) {
 				maxRows:             1,
 			},
 		},
+		{
+			name: "Delete last file in column",
+			fields: fields{
+				cfg: config.Config{
+					Settings: config.Settings{Keymap: config.Keymap{Delete: "d"}},
+				},
+				cwd: "/test",
+				files: []fs.DirEntry{
+					dirEntry{name: "file1", isDir: false},
+					dirEntry{name: "file2", isDir: false},
+				},
+				cursor:              position{r: 0, c: 1},
+				cachedDirSelections: map[string]string{},
+				maxRows:             1,
+			},
+			mocks: mocks{
+				removeFile: func(m Model) func(string) error {
+					return func(string) error { return nil }
+				},
+				readDir: func(m Model) func(string) ([]fs.DirEntry, error) {
+					return func(string) ([]fs.DirEntry, error) {
+						return slices.DeleteFunc(m.files, func(f fs.DirEntry) bool {
+							return f.Name() == "file2"
+						}), nil
+					}
+				},
+			},
+			args: args{
+				msg: tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'d'}},
+			},
+			want: Model{
+				cfg: config.Config{
+					Settings: config.Settings{Keymap: config.Keymap{Delete: "d"}},
+				},
+				cwd: "/test",
+				files: []fs.DirEntry{
+					dirEntry{name: "file1", isDir: false},
+				},
+				cursor:              position{r: 0, c: 0},
+				cachedDirSelections: map[string]string{"/test": "file1"},
+				maxRows:             1,
+			},
+			wantMsgs: []tea.Msg{
+				dirLoaded{
+					path:  "/test",
+					files: []fs.DirEntry{dirEntry{name: "file1", isDir: false}},
+				},
+			},
+		},
+		{
+			name: "Delete last file in row",
+			fields: fields{
+				cfg: config.Config{
+					Settings: config.Settings{Keymap: config.Keymap{Delete: "d"}},
+				},
+				cwd: "/test",
+				files: []fs.DirEntry{
+					dirEntry{name: "file1", isDir: false},
+					dirEntry{name: "file2", isDir: false},
+					dirEntry{name: "file3", isDir: false},
+				},
+				cursor:              position{r: 2, c: 0},
+				cachedDirSelections: map[string]string{},
+				maxRows:             3,
+			},
+			mocks: mocks{
+				removeFile: func(m Model) func(string) error {
+					return func(string) error { return nil }
+				},
+				readDir: func(m Model) func(string) ([]fs.DirEntry, error) {
+					return func(string) ([]fs.DirEntry, error) {
+						return []fs.DirEntry{
+							dirEntry{name: "file1", isDir: false},
+							dirEntry{name: "file2", isDir: false},
+						}, nil
+					}
+				},
+			},
+			args: args{
+				msg: tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'d'}},
+			},
+			want: Model{
+				cfg: config.Config{
+					Settings: config.Settings{Keymap: config.Keymap{Delete: "d"}},
+				},
+				cwd: "/test",
+				files: []fs.DirEntry{
+					dirEntry{name: "file1", isDir: false},
+					dirEntry{name: "file2", isDir: false},
+				},
+				cursor:              position{r: 1, c: 0},
+				cachedDirSelections: map[string]string{"/test": "file2"},
+				maxRows:             3,
+			},
+			wantMsgs: []tea.Msg{
+				dirLoaded{
+					path: "/test",
+					files: []fs.DirEntry{
+						dirEntry{name: "file1", isDir: false},
+						dirEntry{name: "file2", isDir: false},
+					},
+				},
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -522,6 +633,11 @@ func TestModel_Update(t *testing.T) {
 				maxRows:             tt.fields.maxRows,
 				sb:                  tt.fields.sb,
 				lastError:           tt.fields.lastError,
+			}
+
+			if tt.mocks.removeFile != nil {
+				removeFile = tt.mocks.removeFile(m)
+				readDir = tt.mocks.readDir(m)
 			}
 
 			var cmd tea.Cmd
