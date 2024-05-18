@@ -84,9 +84,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.cursor.c-- // undo the cursor move
 			}
 			return m, nil
-		case ",":
+		case m.cfg.Settings.Keybinds.NavOut:
 			return m, m.loadDir(path.Dir(m.cwd))
-		case ".":
+		case m.cfg.Settings.Keybinds.NavIn:
 			if m.files != nil && m.files[m.cursorOffset()].IsDir() {
 				return m, m.loadDir(path.Join(m.cwd, m.files[m.cursorOffset()].Name()))
 			}

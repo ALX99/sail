@@ -22,6 +22,8 @@ type Keybinds struct {
 	NavDown  string `yaml:"down"`
 	NavLeft  string `yaml:"left"`
 	NavRight string `yaml:"right"`
+	NavIn    string `yaml:"in"`
+	NavOut   string `yaml:"out"`
 	Delete   string `yaml:"delete"`
 	Move     string `yaml:"move"`
 }
@@ -40,6 +42,8 @@ func GetConfig() (Config, error) {
 				NavRight: "l",
 				Delete:   "d",
 				Move:     "p",
+				NavIn:    ".",
+				NavOut:   ",",
 			},
 		},
 	}
