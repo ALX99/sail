@@ -139,22 +139,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.files = msg.files
 
 		fName, ok := m.cachedDirSelections[newDir]
-		if !ok {
-			// try to determine the previous file name
+		if !ok && path.Join(newDir, path.Base(prevDir)) == prevDir {
+			// in case of a navigation to the parent directory
+			// select the parent directory in the parent directory
 			fName = path.Base(prevDir)
-
-			if strings.HasPrefix(newDir, prevDir) && len(newDir) > len(prevDir) {
-				if slices.ContainsFunc(msg.files, func(dir fs.DirEntry) bool {
-					return dir.Name() == fName
-				}) {
-					// This is a special case where the previous directory is a subdirectory of the new directory
-					// and it contains a file with the same name as the previous directory
-
-					// For example, if the previous directory was ~/go and the new directory has a file named go (~/go/src/go)
-					// it would cause the "go" file to be selected in the new directory even though it should not
-					fName = ""
-				}
-			}
 		}
 
 		m.trySelectFile(m.files, fName)
