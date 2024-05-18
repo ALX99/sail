@@ -110,19 +110,36 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case dirLoaded:
+		prevDir := m.cwd
+		newDir := msg.path
 		if len(m.files) > 0 {
 			// cache the selected file for the previous directory
-			m.cachedDirSelections[m.cwd] = m.files[m.cursorOffset()].Name()
+			m.cachedDirSelections[prevDir] = m.files[m.cursorOffset()].Name()
 		}
 
-		fName, ok := m.cachedDirSelections[msg.path]
+		m.cwd = newDir
+		m.files = msg.files
+
+		fName, ok := m.cachedDirSelections[newDir]
 		if !ok {
 			// try to determine the previous file name
-			fName = path.Base(m.cwd)
+			fName = path.Base(prevDir)
+
+			if strings.HasPrefix(newDir, prevDir) && len(newDir) > len(prevDir) {
+				if slices.ContainsFunc(msg.files, func(dir fs.DirEntry) bool {
+					return dir.Name() == fName
+				}) {
+					log.Debug().Msgf("Special case, found %v in %v", fName, msg.path)
+					// This is a special case where the previous directory is a subdirectory of the new directory
+					// and it contains a file with the same name as the previous directory
+
+					// For example, if the previous directory was ~/go and the new directory has a file named go (~/go/src/go)
+					// it would cause the "go" file to be selected in the new directory even though it should not
+					fName = ""
+				}
+			}
 		}
 
-		m.cwd = msg.path
-		m.files = msg.files
 		m.trySelectFile(m.files, fName)
 
 		return m, nil
