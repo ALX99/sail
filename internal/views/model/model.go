@@ -14,6 +14,8 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+const maxRows = 10
+
 type dirLoaded struct {
 	path  string
 	files []fs.DirEntry
@@ -30,7 +32,7 @@ type Model struct {
 	files               []fs.DirEntry     // current files in that directory
 	cursor              position          // cursor
 	cachedDirSelections map[string]string // cached file names for directories
-	maxRows             int
+	numRows             int               // the number of rows to display
 
 	// for performance purposes
 	sb strings.Builder
@@ -40,7 +42,7 @@ func New(cwd string, cfg config.Config) Model {
 	return Model{
 		cwd:                 cwd,
 		cfg:                 cfg,
-		maxRows:             10,
+		numRows:             maxRows,
 		cachedDirSelections: make(map[string]string, 100),
 		sb:                  strings.Builder{},
 	}
@@ -52,7 +54,7 @@ func (m Model) Init() tea.Cmd {
 
 func (m Model) cursorOffset() int {
 	// m.logCursor()
-	return m.cursor.c*m.maxRows + m.cursor.r
+	return m.cursor.c*m.numRows + m.cursor.r
 }
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -65,10 +67,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case m.cfg.Settings.Keybinds.NavUp:
 			m.cursor.r = max(0, m.cursor.r-1)
 		case m.cfg.Settings.Keybinds.NavDown:
-			if m.cursor.c < len(m.files)/m.maxRows {
-				m.cursor.r = min(m.cursor.r+1, min(len(m.files), m.maxRows)-1)
-			} else if m.cursor.c == len(m.files)/m.maxRows {
-				m.cursor.r = min(m.cursor.r+1, len(m.files)%m.maxRows-1)
+			if m.cursor.c < len(m.files)/m.numRows {
+				m.cursor.r = min(m.cursor.r+1, min(len(m.files), m.numRows)-1)
+			} else if m.cursor.c == len(m.files)/m.numRows {
+				m.cursor.r = min(m.cursor.r+1, len(m.files)%m.numRows-1)
 			}
 			return m, nil
 
@@ -95,7 +97,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			fName = m.files[m.cursorOffset()].Name()
 		}
 
-		m.maxRows = min(10, max(1, msg.Height-3))
+		m.numRows = min(maxRows, max(1, msg.Height-3))
 
 		m.trySelectFile(m.files, fName)
 
@@ -131,14 +133,14 @@ func (m Model) View() string {
 	m.sb.Reset()
 	m.sb.WriteString(m.cwd + "\n\n")
 
-	grid := make([][]fs.DirEntry, 0, m.maxRows)
-	maxColNameLen := make([]int, len(m.files)/m.maxRows+1)
+	grid := make([][]fs.DirEntry, 0, m.numRows)
+	maxColNameLen := make([]int, len(m.files)/m.numRows+1)
 
 	for i, f := range m.files {
-		if i < m.maxRows {
-			grid = append(grid, make([]fs.DirEntry, 0, 10))
+		if i < m.numRows {
+			grid = append(grid, make([]fs.DirEntry, 0, maxRows))
 		}
-		r, c := i%m.maxRows, i/m.maxRows
+		r, c := i%m.numRows, i/m.numRows
 		maxColNameLen[c] = max(maxColNameLen[c], len(f.Name()))
 
 		grid[r] = append(grid[r], f)
@@ -176,7 +178,7 @@ func (m Model) loadDir(path string) tea.Cmd {
 }
 
 func (m Model) logCursor() {
-	log.Debug().Msgf("cursor.r: %v, cursor.c: %v, maxRows: %v", m.cursor.r, m.cursor.c, m.maxRows)
+	log.Debug().Msgf("cursor.r: %v, cursor.c: %v, maxRows: %v", m.cursor.r, m.cursor.c, m.numRows)
 }
 
 func (m *Model) setCursor(r, c int) {
@@ -192,7 +194,7 @@ func (m *Model) trySelectFile(files []fs.DirEntry, fName string) {
 	})
 
 	if index != -1 {
-		m.setCursor(index%m.maxRows, index/m.maxRows)
+		m.setCursor(index%m.numRows, index/m.numRows)
 	} else {
 		m.setCursor(0, 0)
 	}
