@@ -26,12 +26,12 @@ type position struct {
 type Model struct {
 	cfg config.Config
 
-	cwd     string        // current working directory
-	files   []fs.DirEntry // current files in that directory
-	maxRows int
-
-	cursor    position            // cursor
-	positions map[string]position // previous positions
+	cwd          string              // current working directory
+	files        []fs.DirEntry       // current files in that directory
+	cursor       position            // cursor
+	positions    map[string]position // previous positions
+	tCols, tRows int                 // terminal dimensions
+	maxRows      int
 
 	// for performance purposes
 	sb strings.Builder
@@ -90,6 +90,19 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 
 		}
+	case tea.WindowSizeMsg:
+		var fName string
+		if m.files != nil && len(m.files) > 0 {
+			fName = m.files[m.cursorOffset()].Name()
+		}
+
+		m.tCols, m.tRows = msg.Width, msg.Height
+		m.maxRows = min(10, max(1, m.tRows-3))
+
+		m.trySelectFile(m.files, fName)
+
+		return m, nil
+
 	case dirLoaded:
 		m.positions[m.cwd] = m.cursor // save old cursor pos
 
@@ -104,18 +117,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		} else {
 			log.Debug().Msgf("cache miss for %v", msg.path)
 
-			prevDir := strings.TrimLeft(m.cwd, path.Dir(m.cwd))
-
-			index := slices.IndexFunc(msg.files, func(dir fs.DirEntry) bool {
-				return dir.Name() == prevDir
-			})
-
-			if index != -1 {
-				m.setCursor(index%m.maxRows, index/m.maxRows)
-			} else {
-				m.setCursor(0, 0)
-			}
-
+			prevDirName := strings.TrimLeft(m.cwd, path.Dir(m.cwd))
+			m.trySelectFile(msg.files, prevDirName)
 		}
 
 		m.cwd = msg.path
@@ -186,4 +189,18 @@ func (m Model) logCursor() {
 func (m *Model) setCursor(r, c int) {
 	m.cursor.r = r
 	m.cursor.c = c
+}
+
+// trySelectFile tries to select a file by name or sets the cursor to the first file
+// if the file is not found.
+func (m *Model) trySelectFile(files []fs.DirEntry, fName string) {
+	index := slices.IndexFunc(files, func(dir fs.DirEntry) bool {
+		return dir.Name() == fName
+	})
+
+	if index != -1 {
+		m.setCursor(index%m.maxRows, index/m.maxRows)
+	} else {
+		m.setCursor(0, 0)
+	}
 }
