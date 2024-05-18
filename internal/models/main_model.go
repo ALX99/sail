@@ -102,6 +102,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.files != nil && m.files[m.cursorOffset()].IsDir() {
 				return m, m.loadDir(path.Join(m.cwd, m.files[m.cursorOffset()].Name()))
 			}
+		case m.cfg.Settings.Keymap.NavHome:
+			return m, m.loadDir(os.Getenv("HOME"))
 
 		}
 	case tea.WindowSizeMsg:

@@ -62,6 +62,7 @@ settings:
     right: "l"
     in: "."
     out: ","
+    go_home: "~"
 ```
 
 ### Using sail as a cd replacement

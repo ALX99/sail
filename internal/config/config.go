@@ -23,6 +23,7 @@ type Keymap struct {
 	NavRight string `yaml:"right"`
 	NavIn    string `yaml:"in"`
 	NavOut   string `yaml:"out"`
+	NavHome  string `yaml:"go_home"`
 }
 
 // GetConfig reads, pareses and returns the configuration
@@ -31,12 +32,13 @@ func GetConfig() (Config, error) {
 	cfg := Config{
 		Settings: Settings{
 			Keymap: Keymap{
-				NavLeft:  "h",
-				NavDown:  "j",
 				NavUp:    "k",
+				NavDown:  "j",
+				NavLeft:  "h",
 				NavRight: "l",
 				NavIn:    ".",
 				NavOut:   ",",
+				NavHome:  "~",
 			},
 		},
 	}
