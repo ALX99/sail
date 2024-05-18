@@ -15,12 +15,15 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-const maxRows = 10
+const defaultMaxRows = 10
+
+var pathAnimDuration = 250 * time.Millisecond
 
 type dirLoaded struct {
 	path  string
 	files []fs.DirEntry
 }
+type clearPrevCWD struct{}
 
 type position struct {
 	c, r int
@@ -29,6 +32,8 @@ type position struct {
 type Model struct {
 	cfg config.Config
 
+	clearAnimAt         time.Time         // time when the previous working directory should be cleared
+	prevCWD             string            // previous working directory
 	cwd                 string            // current working directory
 	files               []fs.DirEntry     // current files in that directory
 	cursor              position          // cursor
@@ -44,7 +49,7 @@ func NewMain(cwd string, cfg config.Config) Model {
 	return Model{
 		cwd:                 cwd,
 		cfg:                 cfg,
-		maxRows:             maxRows,
+		maxRows:             defaultMaxRows,
 		cachedDirSelections: make(map[string]string, 100),
 		sb:                  strings.Builder{},
 	}
@@ -112,7 +117,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			fName = m.files[m.cursorOffset()].Name()
 		}
 
-		m.maxRows = min(maxRows, max(1, msg.Height-3))
+		m.maxRows = min(defaultMaxRows, max(1, msg.Height-3))
 
 		m.trySelectFile(m.files, fName)
 
@@ -121,6 +126,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case dirLoaded:
 		prevDir := m.cwd
 		newDir := msg.path
+		if m.prevCWD == "" && prevDir != newDir {
+			m.prevCWD = prevDir
+		}
 		if len(m.files) > 0 {
 			// cache the selected file for the previous directory
 			m.cachedDirSelections[prevDir] = m.files[m.cursorOffset()].Name()
@@ -149,7 +157,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		m.trySelectFile(m.files, fName)
+		m.clearAnimAt = time.Now().Add(pathAnimDuration)
 
+		return m, func() tea.Msg {
+			time.Sleep(pathAnimDuration)
+			return clearPrevCWD{}
+		}
+	case clearPrevCWD:
+		if time.Now().After(m.clearAnimAt) {
+			m.prevCWD = ""
+		}
 		return m, nil
 	case error:
 		m.lastError = msg
@@ -163,15 +180,36 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m Model) View() string {
 	t := time.Now()
 	defer func() { log.Debug().Msgf("Rendered in %v", time.Since(t)) }()
+
 	m.sb.Reset()
-	m.sb.WriteString(m.cwd + "\n\n")
+
+	// some eye candy; directories end with a slash
+	if m.cwd != "/" {
+		m.cwd += "/"
+	}
+
+	if m.prevCWD != "" {
+		if strings.HasPrefix(m.prevCWD, m.cwd) && len(m.cwd) < len(m.prevCWD) {
+			m.sb.WriteString(m.cwd + lipgloss.NewStyle().Foreground(lipgloss.Color("#ff0000")).Render(strings.TrimPrefix(m.prevCWD+"/", m.cwd)))
+		} else if strings.HasPrefix(m.cwd, m.prevCWD) && len(m.cwd) > len(m.prevCWD) {
+			// some eye candy; directories end with a slash
+			if m.prevCWD != "/" {
+				m.prevCWD += "/"
+			}
+			m.sb.WriteString(m.prevCWD + lipgloss.NewStyle().Foreground(lipgloss.Color("#00ff00")).Render(strings.TrimPrefix(m.cwd, m.prevCWD)))
+		}
+	} else {
+		m.sb.WriteString(m.cwd)
+	}
+
+	m.sb.WriteString("\n\n")
 
 	grid := make([][]fs.DirEntry, 0, m.maxRows)
 	maxColNameLen := make([]int, len(m.files)/m.maxRows+1)
 
 	for i, f := range m.files {
 		if i < m.maxRows {
-			grid = append(grid, make([]fs.DirEntry, 0, maxRows))
+			grid = append(grid, make([]fs.DirEntry, 0, defaultMaxRows))
 		}
 		r, c := i%m.maxRows, i/m.maxRows
 		maxColNameLen[c] = max(maxColNameLen[c], len(f.Name()))

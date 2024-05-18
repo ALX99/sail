@@ -6,6 +6,7 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/alx99/sail/internal/config"
 	tea "github.com/charmbracelet/bubbletea"
@@ -29,13 +30,14 @@ func (d dirEntry) Type() fs.FileMode          { return d.mode }
 func (d dirEntry) Info() (fs.FileInfo, error) { return d.info, nil }
 
 func TestModel_Update(t *testing.T) {
+	pathAnimDuration = time.Duration(0)
 	type fields struct {
 		cfg                 config.Config
 		cwd                 string
 		files               []fs.DirEntry
 		cursor              position
 		cachedDirSelections map[string]string
-		numRows             int
+		maxRows             int
 		sb                  strings.Builder
 		lastError           error
 	}
@@ -49,7 +51,8 @@ func TestModel_Update(t *testing.T) {
 		filesMock    []dirEntry
 		filesErrMock error
 		want         Model
-		want1        tea.Cmd
+		want1Nil     bool
+		want1Result  tea.Msg
 	}{
 		{
 			name: "Test special case",
@@ -58,7 +61,7 @@ func TestModel_Update(t *testing.T) {
 				files:               []fs.DirEntry{},
 				cursor:              position{},
 				cachedDirSelections: map[string]string{},
-				numRows:             10,
+				maxRows:             10,
 			},
 			args: args{
 				msg: dirLoaded{
@@ -77,8 +80,10 @@ func TestModel_Update(t *testing.T) {
 				},
 				cursor:              position{},
 				cachedDirSelections: map[string]string{},
-				numRows:             10,
+				maxRows:             10,
+				prevCWD:             "/go",
 			},
+			want1Result: clearPrevCWD{},
 		},
 		{
 			name: "Test cached filename exists",
@@ -87,7 +92,7 @@ func TestModel_Update(t *testing.T) {
 				files:               []fs.DirEntry{},
 				cursor:              position{},
 				cachedDirSelections: map[string]string{"/cache": "ex"},
-				numRows:             10,
+				maxRows:             10,
 			},
 			args: args{
 				msg: dirLoaded{
@@ -106,8 +111,10 @@ func TestModel_Update(t *testing.T) {
 				},
 				cursor:              position{c: 0, r: 1},
 				cachedDirSelections: map[string]string{"/cache": "ex"},
-				numRows:             10,
+				maxRows:             10,
+				prevCWD:             "/currpath",
 			},
+			want1Result: clearPrevCWD{},
 		},
 		{
 			name: "Test adding directories to cachedDirSelections",
@@ -118,7 +125,7 @@ func TestModel_Update(t *testing.T) {
 				},
 				cursor:              position{},
 				cachedDirSelections: map[string]string{},
-				numRows:             10,
+				maxRows:             10,
 			},
 			args: args{
 				msg: dirLoaded{
@@ -131,8 +138,10 @@ func TestModel_Update(t *testing.T) {
 				files:               []fs.DirEntry{},
 				cursor:              position{},
 				cachedDirSelections: map[string]string{"/testpath": "dir1"},
-				numRows:             10,
+				maxRows:             10,
+				prevCWD:             "/testpath",
 			},
+			want1Result: clearPrevCWD{},
 		},
 		{
 			name: "Test NavUp functionality",
@@ -147,7 +156,7 @@ func TestModel_Update(t *testing.T) {
 				},
 				cursor:              position{c: 0, r: 1},
 				cachedDirSelections: map[string]string{},
-				numRows:             10,
+				maxRows:             10,
 			},
 			args: args{
 				msg: tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'a'}},
@@ -163,8 +172,9 @@ func TestModel_Update(t *testing.T) {
 				},
 				cursor:              position{},
 				cachedDirSelections: map[string]string{},
-				numRows:             10,
+				maxRows:             10,
 			},
+			want1Nil: true,
 		},
 		{
 			name: "Test NavUp when cursor is at the top",
@@ -180,7 +190,7 @@ func TestModel_Update(t *testing.T) {
 				},
 				cursor:              position{},
 				cachedDirSelections: map[string]string{},
-				numRows:             10,
+				maxRows:             10,
 			},
 			args: args{
 				msg: tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'a'}},
@@ -197,8 +207,9 @@ func TestModel_Update(t *testing.T) {
 				},
 				cursor:              position{},
 				cachedDirSelections: map[string]string{},
-				numRows:             10,
+				maxRows:             10,
 			},
+			want1Nil: true,
 		},
 		{
 			name: "Test NavDown functionality",
@@ -213,7 +224,7 @@ func TestModel_Update(t *testing.T) {
 				},
 				cursor:              position{},
 				cachedDirSelections: map[string]string{},
-				numRows:             10,
+				maxRows:             10,
 			},
 			args: args{
 				msg: tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'s'}},
@@ -229,8 +240,9 @@ func TestModel_Update(t *testing.T) {
 				},
 				cursor:              position{c: 0, r: 1},
 				cachedDirSelections: map[string]string{},
-				numRows:             10,
+				maxRows:             10,
 			},
+			want1Nil: true,
 		},
 		{
 			name: "Test NavDown functionality when already at the bottom",
@@ -245,7 +257,7 @@ func TestModel_Update(t *testing.T) {
 				},
 				cursor:              position{c: 0, r: 1},
 				cachedDirSelections: map[string]string{},
-				numRows:             10,
+				maxRows:             10,
 			},
 			args: args{
 				msg: tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'s'}},
@@ -261,8 +273,9 @@ func TestModel_Update(t *testing.T) {
 				},
 				cursor:              position{c: 0, r: 1},
 				cachedDirSelections: map[string]string{},
-				numRows:             10,
+				maxRows:             10,
 			},
+			want1Nil: true,
 		},
 		{
 			name: "Test NavDown functionality when cursor is at the bottom of the current row",
@@ -278,7 +291,7 @@ func TestModel_Update(t *testing.T) {
 				},
 				cursor:              position{c: 0, r: 1},
 				cachedDirSelections: map[string]string{},
-				numRows:             2,
+				maxRows:             2,
 			},
 			args: args{
 				msg: tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'s'}},
@@ -295,8 +308,9 @@ func TestModel_Update(t *testing.T) {
 				},
 				cursor:              position{c: 0, r: 1},
 				cachedDirSelections: map[string]string{},
-				numRows:             2,
+				maxRows:             2,
 			},
+			want1Nil: true,
 		},
 		{
 			name: "Test NavLeft",
@@ -311,7 +325,7 @@ func TestModel_Update(t *testing.T) {
 				},
 				cursor:              position{c: 1, r: 0},
 				cachedDirSelections: map[string]string{},
-				numRows:             1,
+				maxRows:             1,
 			},
 			args: args{
 				msg: tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'a'}},
@@ -327,8 +341,9 @@ func TestModel_Update(t *testing.T) {
 				},
 				cursor:              position{c: 0, r: 0},
 				cachedDirSelections: map[string]string{},
-				numRows:             1,
+				maxRows:             1,
 			},
+			want1Nil: true,
 		},
 		{
 			name: "Test NavRight",
@@ -343,7 +358,7 @@ func TestModel_Update(t *testing.T) {
 				},
 				cursor:              position{c: 0, r: 0},
 				cachedDirSelections: map[string]string{},
-				numRows:             1,
+				maxRows:             1,
 			},
 			args: args{
 				msg: tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'d'}},
@@ -359,8 +374,9 @@ func TestModel_Update(t *testing.T) {
 				},
 				cursor:              position{c: 1, r: 0},
 				cachedDirSelections: map[string]string{},
-				numRows:             1,
+				maxRows:             1,
 			},
+			want1Nil: true,
 		},
 		{
 			name: "Test NavRight when cursor is at the last column",
@@ -375,7 +391,7 @@ func TestModel_Update(t *testing.T) {
 				},
 				cursor:              position{c: 1, r: 0},
 				cachedDirSelections: map[string]string{},
-				numRows:             1,
+				maxRows:             1,
 			},
 			args: args{
 				msg: tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'d'}},
@@ -391,8 +407,9 @@ func TestModel_Update(t *testing.T) {
 				},
 				cursor:              position{c: 1, r: 0},
 				cachedDirSelections: map[string]string{},
-				numRows:             1,
+				maxRows:             1,
 			},
+			want1Nil: true,
 		},
 		{
 			name: "Test lastError is cleared on update",
@@ -402,7 +419,7 @@ func TestModel_Update(t *testing.T) {
 				files:               []fs.DirEntry{},
 				cursor:              position{},
 				cachedDirSelections: map[string]string{},
-				numRows:             10,
+				maxRows:             10,
 				lastError:           errors.New("previous error"),
 			},
 			args: args{
@@ -414,8 +431,9 @@ func TestModel_Update(t *testing.T) {
 				files:               []fs.DirEntry{},
 				cursor:              position{},
 				cachedDirSelections: map[string]string{},
-				numRows:             10,
+				maxRows:             10,
 			},
+			want1Nil: true,
 		},
 	}
 	for _, tt := range tests {
@@ -426,18 +444,31 @@ func TestModel_Update(t *testing.T) {
 				files:               tt.fields.files,
 				cursor:              tt.fields.cursor,
 				cachedDirSelections: tt.fields.cachedDirSelections,
-				numRows:             tt.fields.numRows,
+				maxRows:             tt.fields.maxRows,
 				sb:                  tt.fields.sb,
 				lastError:           tt.fields.lastError,
 			}
 
 			iface, got1 := m.Update(tt.args.msg)
+
 			got := iface.(Model)
+			got.clearAnimAt = time.Time{} // don't test timings
+
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("Model.Update() got = %v, want %v", got, tt.want)
 			}
-			if !reflect.DeepEqual(got1, tt.want1) {
-				t.Errorf("Model.Update() got1 = %v, want1 %v", got1, tt.want1)
+
+			if (got1 == nil) != tt.want1Nil {
+				t.Errorf("got1() = %v, want1Nil %v", got1, tt.want1Nil)
+			}
+
+			var got1Result tea.Msg
+			if got1 != nil {
+				got1Result = got1()
+			}
+
+			if !reflect.DeepEqual(got1Result, tt.want1Result) {
+				t.Errorf("got1() got1Result = %v, want1 %v", got1Result, tt.want1Result)
 			}
 		})
 	}

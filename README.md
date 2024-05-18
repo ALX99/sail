@@ -28,7 +28,7 @@ go install github.com/alx99/sail/cmd/sail@latest
 
 ## Preview
 
-[![asciicast](https://asciinema.org/a/659987.svg)](https://asciinema.org/a/659987)
+[![asciicast](https://asciinema.org/a/660008.svg)](https://asciinema.org/a/660008)
 
 ## Features
 
@@ -41,6 +41,7 @@ go install github.com/alx99/sail/cmd/sail@latest
 - [ ] Copy files
 - [ ] Rename files
 - [ ] Create files
+- [ ] Undo
 - [ ] Create directories
 - [ ] Toggle hidden files
 - [ ] Search files
