@@ -6,6 +6,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -73,7 +74,7 @@ func parseStyle(s string) (string, lipgloss.Style, error) {
 	// with a map[regex]style variable.
 	if len(split) != 2 {
 		return "", st, errors.New("invalid entry" + s)
-	} else if !Contains(keys, split[0]) && split[0][0:2] != "*." {
+	} else if !slices.Contains(keys, split[0]) && split[0][0:2] != "*." {
 		return "", st, errors.New("unsupported entry " + s)
 	}
 
