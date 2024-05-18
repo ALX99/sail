@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"os"
 
 	"github.com/alx99/sail/internal/config"
@@ -26,7 +27,8 @@ func main() {
 	util.SetupStyles()
 	cfg, err := config.GetConfig()
 	if err != nil {
-		log.Fatal().Err(err).Send()
+		fmt.Fprintf(os.Stderr, "%v\n", err)
+		os.Exit(1)
 	}
 
 	// m, err := primary.New(state.NewState(), primary.Config{PWDFile: *pwdFile}, cfg)
@@ -36,10 +38,13 @@ func main() {
 
 	cwd, err := os.Getwd()
 	if err != nil {
-		panic(err)
+		fmt.Fprintf(os.Stderr, "%v\n", err)
+		os.Exit(1)
 	}
+
 	_, err = tea.NewProgram(model.New(cwd, cfg)).Run()
 	if err != nil {
-		log.Fatal().Err(err).Send()
+		fmt.Fprintf(os.Stderr, "%v\n", err)
+		os.Exit(1)
 	}
 }
