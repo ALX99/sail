@@ -18,6 +18,14 @@ so you can be confident that upgrading to a new version will not break your setu
 
 This project is inspired by the [lf](https://github.com/gokcehan/lf) file manager, which I previously used, but found to be too buggy.
 
+## Installation
+
+This project is still in its early stages, so it has not had any releases yet. However, you may install the latest development build by running:
+
+```sh
+go install github.com/alx99/sail/cmd/sail@latest
+```
+
 ## Preview
 
 [![asciicast](https://asciinema.org/a/659987.svg)](https://asciinema.org/a/659987)
