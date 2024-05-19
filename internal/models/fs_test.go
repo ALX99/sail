@@ -18,7 +18,7 @@ func (m mockOS) ReadDir(path string) ([]fs.DirEntry, error) {
 	return nil, os.ErrNotExist
 }
 
-func (m mockOS) Remove(fPath string) error {
+func (m mockOS) RemoveAll(fPath string) error {
 	dir := path.Dir(fPath)
 	files, ok := m.files[dir]
 	if !ok {

@@ -121,7 +121,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 				return m, sequentially(
 					func() tea.Msg {
-						return osi.Remove(path.Join(m.cwd, m.files[m.cursorOffset()].Name()))
+						return osi.RemoveAll(path.Join(m.cwd, m.files[m.cursorOffset()].Name()))
 					},
 					m.loadDir(m.cwd),
 				)
