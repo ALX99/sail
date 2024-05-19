@@ -39,6 +39,7 @@ func TestModel_Update(t *testing.T) {
 		maxRows             int
 		sb                  strings.Builder
 		lastError           error
+		selectedFiles       map[string]any
 	}
 	type args struct {
 		msg tea.Msg
@@ -594,6 +595,120 @@ func TestModel_Update(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "Select file",
+			fields: fields{
+				cfg: config.Config{
+					Settings: config.Settings{Keymap: config.Keymap{Select: " "}},
+				},
+				cwd: "/test",
+				files: []fs.DirEntry{
+					dirEntry{name: "file1", isDir: false},
+				},
+				maxRows:       3,
+				selectedFiles: map[string]any{},
+			},
+			args: args{
+				msg: tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{' '}},
+			},
+			wantFunc: func(m Model) Model {
+				m.selectedFiles = map[string]any{
+					"/test/file1": nil,
+				}
+				return m
+			},
+		},
+		{
+			name: "Select file last file (wrap around)",
+			fields: fields{
+				cfg: config.Config{
+					Settings: config.Settings{Keymap: config.Keymap{Select: " "}},
+				},
+				cwd: "/test",
+				files: []fs.DirEntry{
+					dirEntry{name: "file1", isDir: false},
+					dirEntry{name: "file2", isDir: false},
+				},
+				cursor:        position{c: 1},
+				maxRows:       1,
+				selectedFiles: map[string]any{},
+			},
+			args: args{
+				msg: tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{' '}},
+			},
+			wantFunc: func(m Model) Model {
+				m.cursor = position{}
+				m.selectedFiles = map[string]any{
+					"/test/file2": nil,
+				}
+				return m
+			},
+		},
+		{
+			name: "Select file last file (wrap to next col)",
+			fields: fields{
+				cfg: config.Config{
+					Settings: config.Settings{Keymap: config.Keymap{Select: " "}},
+				},
+				cwd: "/test",
+				files: []fs.DirEntry{
+					dirEntry{name: "file1", isDir: false},
+					dirEntry{name: "file2", isDir: false},
+				},
+				maxRows:       1,
+				selectedFiles: map[string]any{},
+			},
+			args: args{
+				msg: tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{' '}},
+			},
+			wantFunc: func(m Model) Model {
+				m.cursor = position{c: 1}
+				m.selectedFiles = map[string]any{
+					"/test/file1": nil,
+				}
+				return m
+			},
+		},
+		{
+			name: "Deselect file (next row move)",
+			fields: fields{
+				cfg: config.Config{
+					Settings: config.Settings{Keymap: config.Keymap{Select: " "}},
+				},
+				cwd: "/test",
+				files: []fs.DirEntry{
+					dirEntry{name: "file1", isDir: false},
+					dirEntry{name: "file2", isDir: false},
+				},
+				maxRows:       2,
+				selectedFiles: map[string]any{"/test/file1": nil},
+			},
+			args: args{
+				msg: tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{' '}},
+			},
+			wantFunc: func(m Model) Model {
+				m.cursor = position{r: 1}
+				m.selectedFiles = map[string]any{}
+				return m
+			},
+		},
+		{
+			name: "Select file (no files)",
+			fields: fields{
+				cfg: config.Config{
+					Settings: config.Settings{Keymap: config.Keymap{Select: " "}},
+				},
+				cwd:     "/test",
+				files:   []fs.DirEntry{},
+				maxRows: 2,
+			},
+			args: args{
+				msg: tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{' '}},
+			},
+			wantFunc: func(m Model) Model {
+				return m
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -606,6 +721,7 @@ func TestModel_Update(t *testing.T) {
 				maxRows:             tt.fields.maxRows,
 				sb:                  tt.fields.sb,
 				lastError:           tt.fields.lastError,
+				selectedFiles:       tt.fields.selectedFiles,
 			}
 
 			if mock, ok := tt.mocks.fs.(mockOS); ok {

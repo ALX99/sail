@@ -17,7 +17,11 @@ import (
 
 const defaultMaxRows = 10
 
-var pathAnimDuration = 250 * time.Millisecond
+var (
+	pathAnimDuration = 250 * time.Millisecond
+	white            = lipgloss.NewStyle().Foreground(lipgloss.Color("#ffffff"))
+	red              = lipgloss.NewStyle().Foreground(lipgloss.Color("#ff0000"))
+)
 
 type dirLoaded struct {
 	path  string
@@ -38,6 +42,7 @@ type Model struct {
 	files               []fs.DirEntry     // current files in that directory
 	cursor              position          // cursor
 	cachedDirSelections map[string]string // cached file names for directories
+	selectedFiles       map[string]any    // selected files
 	maxRows             int               // the maximum number of rows to display
 	lastError           error             // last error that occurred
 
@@ -51,6 +56,7 @@ func NewMain(cwd string, cfg config.Config) Model {
 		cfg:                 cfg,
 		maxRows:             defaultMaxRows,
 		cachedDirSelections: make(map[string]string, 100),
+		selectedFiles:       make(map[string]any, 100),
 		sb:                  strings.Builder{},
 	}
 }
@@ -130,19 +136,36 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				},
 				m.loadDir(m.cwd),
 			)
-			if len(m.files) > 0 {
-				// we optimistically believe that the file will be deleted
-				delete(m.cachedDirSelections, m.cwd)
 
-				return m, sequentially(
-					func() tea.Msg {
-						return osi.RemoveAll(path.Join(m.cwd, m.files[m.cursorOffset()].Name()))
-					},
-					m.loadDir(m.cwd),
-				)
+		case m.cfg.Settings.Keymap.Select:
+			if len(m.files) <= 0 {
+				return m, nil
+			}
+
+			fName := path.Join(m.cwd, m.files[m.cursorOffset()].Name())
+			if _, ok := m.selectedFiles[fName]; ok {
+				delete(m.selectedFiles, fName)
+				log.Debug().Msgf("Deselected %s", fName)
+			} else {
+				m.selectedFiles[fName] = nil
+				log.Debug().Msgf("Selected %s", fName)
+			}
+
+			prevCursor := m.cursor
+			m = m.goDown()
+			if prevCursor != m.cursor {
+				return m, nil
+			}
+
+			// If the cursor did not move, it HAS to mean we are at the
+			// end of a row. Try to move to the next column
+			if m.cursorOffset()+1 < len(m.files) {
+				m.setCursor(0, m.cursor.c+1)
+			} else {
+				// here we MUST be at the end of the list
+				m.setCursor(0, 0)
 			}
 			return m, nil
-
 		}
 	case tea.WindowSizeMsg:
 		var fName string
@@ -233,7 +256,7 @@ func (m Model) View() string {
 
 	if m.prevCWD != "" {
 		if strings.HasPrefix(m.prevCWD, m.cwd) && len(m.cwd) < len(m.prevCWD) {
-			m.sb.WriteString(m.cwd + lipgloss.NewStyle().Foreground(lipgloss.Color("#ff0000")).Render(strings.TrimPrefix(m.prevCWD+"/", m.cwd)))
+			m.sb.WriteString(m.cwd + red.Render(strings.TrimPrefix(m.prevCWD+"/", m.cwd)))
 		} else if strings.HasPrefix(m.cwd, m.prevCWD) && len(m.cwd) > len(m.prevCWD) {
 			// some eye candy; directories end with a slash
 			if m.prevCWD != "/" {
@@ -264,29 +287,36 @@ func (m Model) View() string {
 	for row := range len(grid) {
 		for col, f := range grid[row] {
 			if m.cursor.r == row && m.cursor.c == col {
-				m.sb.WriteString(">")
+				m.sb.WriteString(white.Render(">"))
 			}
 
-			extraPadding := 0
+			rightPad := 0
 
 			// only pad if the column is not the last column
 			if col < len(grid[row]) {
-				extraPadding = maxColNameLen[col] - len(f.Name()) + 2
+				// +3 because we want at least one space between the file name and the next column
+				// and we can get +2 extra characters before the name (cursor + selection)
+				rightPad = maxColNameLen[col] - len(f.Name()) + 3
 
 				if m.cursor.r == row && m.cursor.c == col {
-					extraPadding--
+					rightPad--
 				}
 			}
 
+			if m.isSelected(f.Name()) {
+				m.sb.WriteString(white.Render(">"))
+				rightPad--
+			}
+
 			m.sb.WriteString(util.GetStyle(f).
-				PaddingRight(extraPadding).
+				PaddingRight(rightPad).
 				Render(f.Name()))
 		}
 		m.sb.WriteString("\n")
 
 		if row == len(grid)-1 {
 			if m.lastError != nil {
-				m.sb.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("#ff0000")).Render(m.lastError.Error()))
+				m.sb.WriteString(red.Render(m.lastError.Error()))
 			}
 		}
 	}
@@ -309,8 +339,8 @@ func (m Model) logCursor() {
 }
 
 func (m *Model) setCursor(r, c int) {
-	m.cursor.c = r
-	m.cursor.r = c
+	m.cursor.c = c
+	m.cursor.r = r
 }
 
 // trySelectFile tries to select a file by name or sets the cursor to the first file
@@ -321,7 +351,7 @@ func (m *Model) trySelectFile(fName string) {
 	})
 
 	if index != -1 {
-		m.setCursor(index/m.maxRows, index%m.maxRows)
+		m.setCursor(index%m.maxRows, index/m.maxRows)
 	} else {
 		m.setCursor(0, 0)
 	}
@@ -347,6 +377,11 @@ func (m Model) goDown() Model {
 		}
 	}
 	return m
+}
+
+func (m Model) isSelected(name string) bool {
+	_, ok := m.selectedFiles[path.Join(m.cwd, name)]
+	return ok
 }
 
 // sequentially produces a command that sequentially executes the given

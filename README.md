@@ -37,6 +37,7 @@ go install github.com/alx99/sail/cmd/sail@latest
 - [x] Customizable keybindings
 - [x] *Sail* into directories
 - [x] Delete files (*partial* support)
+- [x] Select files
 - [ ] Move files
 - [ ] Copy files
 - [ ] Rename files
@@ -65,6 +66,7 @@ settings:
     out: ","
     go_home: "~"
     delete: "d"
+    select: " "
 ```
 
 ### Using sail as a cd replacement
