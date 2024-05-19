@@ -121,7 +121,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 				return m, sequentially(
 					func() tea.Msg {
-						return removeFile(path.Join(m.cwd, m.files[m.cursorOffset()].Name()))
+						return osi.Remove(path.Join(m.cwd, m.files[m.cursorOffset()].Name()))
 					},
 					m.loadDir(m.cwd),
 				)
@@ -281,7 +281,7 @@ func (m Model) View() string {
 
 func (m Model) loadDir(path string) tea.Cmd {
 	return func() tea.Msg {
-		files, err := readDir(path)
+		files, err := osi.ReadDir(path)
 		if err != nil {
 			return err
 		}

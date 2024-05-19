@@ -4,6 +4,7 @@ import (
 	"errors"
 	"io/fs"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -21,8 +22,6 @@ type dirEntry struct {
 	mode      fs.FileMode
 	info      fs.FileInfo
 }
-
-var _ fs.DirEntry = dirEntry{}
 
 func (d dirEntry) Name() string               { return d.name }
 func (d dirEntry) IsDir() bool                { return d.isDir }
@@ -45,15 +44,13 @@ func TestModel_Update(t *testing.T) {
 		msg tea.Msg
 	}
 	type mocks struct {
-		removeFile func(Model) func(string) error
-		readDir    func(Model) func(string) ([]fs.DirEntry, error)
+		fs fsys
 	}
 
 	tests := []struct {
 		name       string
 		fields     fields
 		args       args
-		want       Model
 		wantFunc   func(Model) Model
 		wantMsgs   []tea.Msg
 		mocks      mocks
@@ -456,16 +453,7 @@ func TestModel_Update(t *testing.T) {
 				maxRows:             1,
 			},
 			mocks: mocks{
-				removeFile: func(m Model) func(string) error {
-					return func(string) error { return nil }
-				},
-				readDir: func(m Model) func(string) ([]fs.DirEntry, error) {
-					return func(string) ([]fs.DirEntry, error) {
-						return []fs.DirEntry{
-							dirEntry{name: "file1", isDir: false},
-						}, nil
-					}
-				},
+				fs: mockOS{},
 			},
 			args: args{
 				msg: tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'d'}},
@@ -475,18 +463,6 @@ func TestModel_Update(t *testing.T) {
 				m.files = []fs.DirEntry{dirEntry{name: "file1", isDir: false}}
 
 				return m
-			},
-			want: Model{
-				cfg: config.Config{
-					Settings: config.Settings{Keymap: config.Keymap{Delete: "d"}},
-				},
-				cwd: "/test",
-				files: []fs.DirEntry{
-					dirEntry{name: "file1", isDir: false},
-				},
-				cursor:              position{r: 0, c: 0},
-				cachedDirSelections: map[string]string{"/test": "file1"},
-				maxRows:             1,
 			},
 			wantMsgs: []tea.Msg{
 				dirLoaded{
@@ -512,27 +488,51 @@ func TestModel_Update(t *testing.T) {
 				maxRows:             3,
 			},
 			mocks: mocks{
-				removeFile: func(m Model) func(string) error {
-					return func(string) error { return nil }
-				},
-				readDir: func(m Model) func(string) ([]fs.DirEntry, error) {
-					return func(string) ([]fs.DirEntry, error) {
-						return []fs.DirEntry{
-							dirEntry{name: "file1", isDir: false},
-							dirEntry{name: "file2", isDir: false},
-						}, nil
-					}
-				},
+				fs: mockOS{},
 			},
 			args: args{
 				msg: tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'d'}},
 			},
 			wantFunc: func(m Model) Model {
 				m.cursor = position{r: 1, c: 0}
-				m.files = []fs.DirEntry{
+				m.files = slices.Delete(m.files, 2, 3)
+				return m
+			},
+			wantMsgs: []tea.Msg{
+				dirLoaded{
+					path: "/test",
+					files: []fs.DirEntry{
+						dirEntry{name: "file1", isDir: false},
+						dirEntry{name: "file2", isDir: false},
+					},
+				},
+			},
+		},
+		{
+			name: "Delete last file in column",
+			fields: fields{
+				cfg: config.Config{
+					Settings: config.Settings{Keymap: config.Keymap{Delete: "d"}},
+				},
+				cwd: "/test",
+				files: []fs.DirEntry{
 					dirEntry{name: "file1", isDir: false},
 					dirEntry{name: "file2", isDir: false},
-				}
+					dirEntry{name: "file3", isDir: false},
+				},
+				cursor:              position{r: 0, c: 1},
+				cachedDirSelections: map[string]string{},
+				maxRows:             2,
+			},
+			mocks: mocks{
+				fs: mockOS{},
+			},
+			args: args{
+				msg: tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'d'}},
+			},
+			wantFunc: func(m Model) Model {
+				m.cursor = position{r: 1, c: 0}
+				m.files = slices.Delete(m.files, 2, 3)
 				return m
 			},
 			wantMsgs: []tea.Msg{
@@ -568,39 +568,14 @@ func TestModel_Update(t *testing.T) {
 				maxRows:             3,
 			},
 			mocks: mocks{
-				removeFile: func(m Model) func(string) error {
-					return func(string) error { return nil }
-				},
-				readDir: func(m Model) func(string) ([]fs.DirEntry, error) {
-					return func(string) ([]fs.DirEntry, error) {
-						return []fs.DirEntry{
-							dirEntry{name: "file1", isDir: false},
-							dirEntry{name: "file2", isDir: false},
-							dirEntry{name: "file3", isDir: false},
-							dirEntry{name: "file4", isDir: false},
-							dirEntry{name: "file6", isDir: false},
-							dirEntry{name: "file7", isDir: false},
-							dirEntry{name: "file8", isDir: false},
-							dirEntry{name: "file9", isDir: false},
-						}, nil
-					}
-				},
+				fs: mockOS{},
 			},
 			args: args{
 				msg: tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'d'}},
 			},
 			wantFunc: func(m Model) Model {
 				m.cursor = position{r: 1, c: 1}
-				m.files = []fs.DirEntry{
-					dirEntry{name: "file1", isDir: false},
-					dirEntry{name: "file2", isDir: false},
-					dirEntry{name: "file3", isDir: false},
-					dirEntry{name: "file4", isDir: false},
-					dirEntry{name: "file6", isDir: false},
-					dirEntry{name: "file7", isDir: false},
-					dirEntry{name: "file8", isDir: false},
-					dirEntry{name: "file9", isDir: false},
-				}
+				m.files = slices.Delete(m.files, 4, 5)
 				return m
 			},
 			wantMsgs: []tea.Msg{
@@ -633,9 +608,9 @@ func TestModel_Update(t *testing.T) {
 				lastError:           tt.fields.lastError,
 			}
 
-			if tt.mocks.removeFile != nil {
-				removeFile = tt.mocks.removeFile(m)
-				readDir = tt.mocks.readDir(m)
+			if mock, ok := tt.mocks.fs.(mockOS); ok {
+				mock.addFromModel(m)
+				osi = mock
 			}
 
 			var cmd tea.Cmd
@@ -670,16 +645,14 @@ func TestModel_Update(t *testing.T) {
 			got := iface.(Model)
 			got.clearAnimAt = time.Time{} // don't test timings
 
-			if tt.wantFunc != nil {
-				tt.want = tt.wantFunc(m)
+			want := tt.wantFunc(m)
+
+			if got.cursor.r != want.cursor.r || got.cursor.c != want.cursor.c {
+				t.Errorf("Model.Update() got cursor = %+v, want cursor %+v", got.cursor, want.cursor)
 			}
 
-			if got.cursor.r != tt.want.cursor.r || got.cursor.c != tt.want.cursor.c {
-				t.Errorf("Model.Update() got cursor = %+v, want cursor %+v", got.cursor, tt.want.cursor)
-			}
-
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("Model.Update() got, want:\n%v\n%v\n", got, tt.want)
+			if !reflect.DeepEqual(got, want) {
+				t.Errorf("Model.Update() got, want:\n%v\n%v\n", got, want)
 			}
 		})
 	}
