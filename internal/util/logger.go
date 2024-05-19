@@ -15,7 +15,7 @@ import (
 )
 
 // SetupLogger sets up the global logger
-func SetupLogger(buffered bool) (flush func() error) {
+func SetupLogger(buffered bool) (flush func() (string, error)) {
 	fPath := path.Join(os.TempDir(), "sail.log")
 	f, err := os.Create(fPath)
 	if err != nil {
@@ -23,11 +23,11 @@ func SetupLogger(buffered bool) (flush func() error) {
 	}
 
 	var w io.Writer = f
-	flush = func() error { return nil }
+	flush = func() (string, error) { return fPath, nil }
 
 	if buffered {
 		w = bufio.NewWriter(f)
-		flush = w.(*bufio.Writer).Flush
+		flush = func() (string, error) { return fPath, w.(*bufio.Writer).Flush() }
 	}
 
 	log.Logger = log.Output(zerolog.ConsoleWriter{

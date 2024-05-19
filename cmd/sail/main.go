@@ -42,18 +42,13 @@ func main() {
 
 	flush := util.SetupLogger(!isDev)
 	defer func() {
-		if err = flush(); err != nil {
-			fmt.Fprintln(os.Stderr, "failed to flush log: "+err.Error())
+		if logPath, err := flush(); err != nil {
+			fmt.Fprintf(os.Stderr, "Failed flushing logs to %q: %v\n", logPath, err)
 		}
 	}()
 	log.Info().Msg("Sail started")
 
 	util.SetupStyles()
-
-	// m, err := primary.New(state.NewState(), primary.Config{PWDFile: *pwdFile}, cfg)
-	// if err != nil {
-	// 	log.Fatal().Err(err).Send()
-	// }
 
 	cwd, err := os.Getwd()
 	if err != nil {
