@@ -283,10 +283,10 @@ func (m Model) View() string {
 			grid = append(grid, make([]fs.DirEntry, 0, defaultMaxRows))
 		}
 		r, c := i%m.maxRows, i/m.maxRows
-		maxColNameLen[c] = max(maxColNameLen[c], len(f.Name()))
+		maxColNameLen[c] = max(maxColNameLen[c], lipgloss.Width(f.Name()))
 
 		grid[r] = append(grid[r], f)
-		maxColNameLen[len(grid[r])-1] = max(maxColNameLen[len(grid[r])-1], len(f.Name()))
+		maxColNameLen[len(grid[r])-1] = max(maxColNameLen[len(grid[r])-1], lipgloss.Width(f.Name()))
 	}
 
 	for row := range len(grid) {
@@ -296,7 +296,7 @@ func (m Model) View() string {
 			}
 
 			// +3 because of (cursor, selection and 1 space for next row)
-			rightPad := maxColNameLen[col] - len(f.Name()) + 3
+			rightPad := maxColNameLen[col] - lipgloss.Width(f.Name()) + 3
 
 			if m.cursor.r == row && m.cursor.c == col {
 				rightPad--
