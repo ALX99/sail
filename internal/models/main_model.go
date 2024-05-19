@@ -207,7 +207,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m Model) View() string {
 	t := time.Now()
-	defer func() { log.Debug().Msgf("Rendered in %v", time.Since(t)) }()
+	defer func() { log.Trace().Msgf("Rendered in %v", time.Since(t)) }()
 
 	m.sb.Reset()
 
@@ -290,7 +290,7 @@ func (m Model) loadDir(path string) tea.Cmd {
 }
 
 func (m Model) logCursor() {
-	log.Debug().Msgf("cursor(%v, %v)", m.cursor.c, m.cursor.r)
+	log.Trace().Msgf("cursor(%v, %v)", m.cursor.c, m.cursor.r)
 }
 
 func (m *Model) setCursor(r, c int) {
