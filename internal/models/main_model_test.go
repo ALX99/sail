@@ -55,6 +55,7 @@ func TestModel_Update(t *testing.T) {
 		fields     fields
 		args       args
 		want       Model
+		wantFunc   func(Model) Model
 		wantMsgs   []tea.Msg
 		mocks      mocks
 		filterMsgs []tea.Msg // msgs not to resend to model
@@ -77,16 +78,14 @@ func TestModel_Update(t *testing.T) {
 					},
 				},
 			},
-			want: Model{
-				cwd: "/go/src",
-				files: []fs.DirEntry{
+			wantFunc: func(m Model) Model {
+				m.cwd = "/go/src"
+				m.files = []fs.DirEntry{
 					dirEntry{name: "goa", isDir: true},
 					dirEntry{name: "go", isDir: true},
-				},
-				cursor:              position{},
-				cachedDirSelections: map[string]string{},
-				maxRows:             10,
-				prevCWD:             "/go",
+				}
+				m.prevCWD = "/go"
+				return m
 			},
 			filterMsgs: []tea.Msg{clearPrevCWD{}},
 		},
@@ -108,16 +107,15 @@ func TestModel_Update(t *testing.T) {
 					},
 				},
 			},
-			want: Model{
-				cwd: "/cache",
-				files: []fs.DirEntry{
+			wantFunc: func(m Model) Model {
+				m.cwd = "/cache"
+				m.files = []fs.DirEntry{
 					dirEntry{name: "file1", isDir: true},
 					dirEntry{name: "ex", isDir: true},
-				},
-				cursor:              position{r: 1, c: 0},
-				cachedDirSelections: map[string]string{"/cache": "ex"},
-				maxRows:             10,
-				prevCWD:             "/currpath",
+				}
+				m.prevCWD = "/currpath"
+				m.cursor = position{r: 1, c: 0}
+				return m
 			},
 			filterMsgs: []tea.Msg{clearPrevCWD{}},
 		},
@@ -138,13 +136,13 @@ func TestModel_Update(t *testing.T) {
 					files: []fs.DirEntry{},
 				},
 			},
-			want: Model{
-				cwd:                 "/testpath/dir1",
-				files:               []fs.DirEntry{},
-				cursor:              position{},
-				cachedDirSelections: map[string]string{"/testpath": "dir1"},
-				maxRows:             10,
-				prevCWD:             "/testpath",
+			wantFunc: func(m Model) Model {
+				m.cwd = "/testpath/dir1"
+				m.files = []fs.DirEntry{}
+				m.cursor = position{}
+				m.cachedDirSelections = map[string]string{"/testpath": "dir1"}
+				m.prevCWD = "/testpath"
+				return m
 			},
 			filterMsgs: []tea.Msg{clearPrevCWD{}},
 		},
@@ -159,25 +157,16 @@ func TestModel_Update(t *testing.T) {
 					dirEntry{name: "file1", isDir: false},
 					dirEntry{name: "file2", isDir: false},
 				},
-				cursor:              position{r: 1, c: 0},
+				cursor:              position{r: 1},
 				cachedDirSelections: map[string]string{},
 				maxRows:             10,
 			},
 			args: args{
 				msg: tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'a'}},
 			},
-			want: Model{
-				cfg: config.Config{
-					Settings: config.Settings{Keymap: config.Keymap{NavUp: "a"}},
-				},
-				cwd: "/testpath",
-				files: []fs.DirEntry{
-					dirEntry{name: "file1", isDir: false},
-					dirEntry{name: "file2", isDir: false},
-				},
-				cursor:              position{},
-				cachedDirSelections: map[string]string{},
-				maxRows:             10,
+			wantFunc: func(m Model) Model {
+				m.cursor = position{}
+				return m
 			},
 		},
 		{
@@ -199,7 +188,13 @@ func TestModel_Update(t *testing.T) {
 			args: args{
 				msg: tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'a'}},
 			},
-			want: Model{
+			wantFunc: func(m Model) Model {
+				return m
+			},
+		},
+		{
+			name: "Test NavUp when cursor is at the top of the current column",
+			fields: fields{
 				cfg: config.Config{
 					Settings: config.Settings{Keymap: config.Keymap{NavUp: "a"}},
 				},
@@ -207,11 +202,16 @@ func TestModel_Update(t *testing.T) {
 				files: []fs.DirEntry{
 					dirEntry{name: "file1", isDir: false},
 					dirEntry{name: "file2", isDir: false},
-					dirEntry{name: "file3", isDir: false},
 				},
-				cursor:              position{},
+				cursor:              position{c: 1},
 				cachedDirSelections: map[string]string{},
 				maxRows:             10,
+			},
+			args: args{
+				msg: tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'a'}},
+			},
+			wantFunc: func(m Model) Model {
+				return m
 			},
 		},
 		{
@@ -232,18 +232,9 @@ func TestModel_Update(t *testing.T) {
 			args: args{
 				msg: tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'s'}},
 			},
-			want: Model{
-				cfg: config.Config{
-					Settings: config.Settings{Keymap: config.Keymap{NavDown: "s"}},
-				},
-				cwd: "/testpath",
-				files: []fs.DirEntry{
-					dirEntry{name: "file1", isDir: false},
-					dirEntry{name: "file2", isDir: false},
-				},
-				cursor:              position{r: 1, c: 0},
-				cachedDirSelections: map[string]string{},
-				maxRows:             10,
+			wantFunc: func(m Model) Model {
+				m.cursor = position{r: 1, c: 0}
+				return m
 			},
 		},
 		{
@@ -671,6 +662,10 @@ func TestModel_Update(t *testing.T) {
 
 			got := iface.(Model)
 			got.clearAnimAt = time.Time{} // don't test timings
+
+			if tt.wantFunc != nil {
+				tt.want = tt.wantFunc(m)
+			}
 
 			if got.cursor.r != tt.want.cursor.r || got.cursor.c != tt.want.cursor.c {
 				t.Errorf("Model.Update() got cursor = %+v, want cursor %+v", got.cursor, tt.want.cursor)
