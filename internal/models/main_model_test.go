@@ -4,7 +4,6 @@ import (
 	"errors"
 	"io/fs"
 	"reflect"
-	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -278,19 +277,8 @@ func TestModel_Update(t *testing.T) {
 			args: args{
 				msg: tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'s'}},
 			},
-			want: Model{
-				cfg: config.Config{
-					Settings: config.Settings{Keymap: config.Keymap{NavDown: "s"}},
-				},
-				cwd: "/testpath",
-				files: []fs.DirEntry{
-					dirEntry{name: "file1", isDir: false},
-					dirEntry{name: "file2", isDir: false},
-					dirEntry{name: "file3", isDir: false},
-				},
-				cursor:              position{r: 0, c: 1},
-				cachedDirSelections: map[string]string{},
-				maxRows:             2,
+			wantFunc: func(m Model) Model {
+				return m
 			},
 		},
 		{
@@ -311,18 +299,9 @@ func TestModel_Update(t *testing.T) {
 			args: args{
 				msg: tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'a'}},
 			},
-			want: Model{
-				cfg: config.Config{
-					Settings: config.Settings{Keymap: config.Keymap{NavLeft: "a"}},
-				},
-				cwd: "/testpath",
-				files: []fs.DirEntry{
-					dirEntry{name: "file1", isDir: false},
-					dirEntry{name: "file2", isDir: false},
-				},
-				cursor:              position{r: 0, c: 0},
-				cachedDirSelections: map[string]string{},
-				maxRows:             1,
+			wantFunc: func(m Model) Model {
+				m.cursor = position{r: 0, c: 0}
+				return m
 			},
 		},
 		{
@@ -343,18 +322,9 @@ func TestModel_Update(t *testing.T) {
 			args: args{
 				msg: tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'d'}},
 			},
-			want: Model{
-				cfg: config.Config{
-					Settings: config.Settings{Keymap: config.Keymap{NavRight: "d"}},
-				},
-				cwd: "/testpath",
-				files: []fs.DirEntry{
-					dirEntry{name: "file1", isDir: false},
-					dirEntry{name: "file2", isDir: false},
-				},
-				cursor:              position{r: 0, c: 1},
-				cachedDirSelections: map[string]string{},
-				maxRows:             1,
+			wantFunc: func(m Model) Model {
+				m.cursor = position{r: 0, c: 1}
+				return m
 			},
 		},
 		{
@@ -375,18 +345,8 @@ func TestModel_Update(t *testing.T) {
 			args: args{
 				msg: tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'d'}},
 			},
-			want: Model{
-				cfg: config.Config{
-					Settings: config.Settings{Keymap: config.Keymap{NavRight: "d"}},
-				},
-				cwd: "/testpath",
-				files: []fs.DirEntry{
-					dirEntry{name: "file1", isDir: false},
-					dirEntry{name: "file2", isDir: false},
-				},
-				cursor:              position{r: 0, c: 1},
-				cachedDirSelections: map[string]string{},
-				maxRows:             1,
+			wantFunc: func(m Model) Model {
+				return m
 			},
 		},
 		{
@@ -398,18 +358,14 @@ func TestModel_Update(t *testing.T) {
 				cursor:              position{},
 				cachedDirSelections: map[string]string{},
 				maxRows:             10,
-				lastError:           errors.New("previous error"),
+				lastError:           errors.New("some error"),
 			},
 			args: args{
 				msg: tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'s'}},
 			},
-			want: Model{
-				cfg:                 config.Config{},
-				cwd:                 "/testpath",
-				files:               []fs.DirEntry{},
-				cursor:              position{},
-				cachedDirSelections: map[string]string{},
-				maxRows:             10,
+			wantFunc: func(m Model) Model {
+				m.lastError = nil
+				return m
 			},
 		},
 		{
@@ -429,18 +385,39 @@ func TestModel_Update(t *testing.T) {
 					},
 				},
 			},
-			want: Model{
-				cwd: "/special",
-				files: []fs.DirEntry{
+			wantFunc: func(m Model) Model {
+				m.files = []fs.DirEntry{
 					dirEntry{name: "specialDir", isDir: true},
-				},
-				cursor:              position{},
-				cachedDirSelections: map[string]string{"/special": "specialDir"},
-				maxRows:             10,
+				}
+				return m
 			},
 		},
 		{
 			name: "Load same directory when files deleted",
+			fields: fields{
+				cwd: "/special",
+				files: []fs.DirEntry{
+					dirEntry{name: "file1", isDir: false},
+					dirEntry{name: "file2", isDir: false},
+				},
+				cursor:              position{r: 1},
+				cachedDirSelections: map[string]string{"/special": "xx"},
+				maxRows:             1,
+			},
+			args: args{
+				msg: dirLoaded{
+					path:  "/special",
+					files: []fs.DirEntry{},
+				},
+			},
+			wantFunc: func(m Model) Model {
+				m.files = []fs.DirEntry{}
+				m.cursor = position{}
+				return m
+			},
+		},
+		{
+			name: "Load same directory when previous selected files deleted",
 			fields: fields{
 				cwd: "/special",
 				files: []fs.DirEntry{
@@ -457,45 +434,10 @@ func TestModel_Update(t *testing.T) {
 					files: []fs.DirEntry{},
 				},
 			},
-			want: Model{
-				cwd:                 "/special",
-				files:               []fs.DirEntry{},
-				cursor:              position{},
-				cachedDirSelections: map[string]string{},
-				maxRows:             1,
-			},
-		},
-		{
-			name: "Load same directory when previous selected files deleted",
-			fields: fields{
-				cwd: "/special",
-				files: []fs.DirEntry{
-					dirEntry{name: "dir1", isDir: true},
-					dirEntry{name: "file2", isDir: false},
-					dirEntry{name: "file3", isDir: false},
-				},
-				cursor:              position{c: 2},
-				cachedDirSelections: map[string]string{},
-				maxRows:             1,
-			},
-			args: args{
-				msg: dirLoaded{
-					path: "/special",
-					files: []fs.DirEntry{
-						dirEntry{name: "dir1", isDir: true},
-						dirEntry{name: "file2", isDir: false},
-					},
-				},
-			},
-			want: Model{
-				cwd: "/special",
-				files: []fs.DirEntry{
-					dirEntry{name: "dir1", isDir: true},
-					dirEntry{name: "file2", isDir: false},
-				},
-				cursor:              position{c: 1},
-				cachedDirSelections: map[string]string{"/special": "file2"},
-				maxRows:             1,
+			wantFunc: func(m Model) Model {
+				m.files = []fs.DirEntry{}
+				m.cursor = position{}
+				return m
 			},
 		},
 		{
@@ -519,14 +461,20 @@ func TestModel_Update(t *testing.T) {
 				},
 				readDir: func(m Model) func(string) ([]fs.DirEntry, error) {
 					return func(string) ([]fs.DirEntry, error) {
-						return slices.DeleteFunc(m.files, func(f fs.DirEntry) bool {
-							return f.Name() == "file2"
-						}), nil
+						return []fs.DirEntry{
+							dirEntry{name: "file1", isDir: false},
+						}, nil
 					}
 				},
 			},
 			args: args{
 				msg: tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'d'}},
+			},
+			wantFunc: func(m Model) Model {
+				m.cursor = position{}
+				m.files = []fs.DirEntry{dirEntry{name: "file1", isDir: false}}
+
+				return m
 			},
 			want: Model{
 				cfg: config.Config{
@@ -579,18 +527,13 @@ func TestModel_Update(t *testing.T) {
 			args: args{
 				msg: tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'d'}},
 			},
-			want: Model{
-				cfg: config.Config{
-					Settings: config.Settings{Keymap: config.Keymap{Delete: "d"}},
-				},
-				cwd: "/test",
-				files: []fs.DirEntry{
+			wantFunc: func(m Model) Model {
+				m.cursor = position{r: 1, c: 0}
+				m.files = []fs.DirEntry{
 					dirEntry{name: "file1", isDir: false},
 					dirEntry{name: "file2", isDir: false},
-				},
-				cursor:              position{r: 1, c: 0},
-				cachedDirSelections: map[string]string{"/test": "file2"},
-				maxRows:             3,
+				}
+				return m
 			},
 			wantMsgs: []tea.Msg{
 				dirLoaded{
@@ -598,6 +541,80 @@ func TestModel_Update(t *testing.T) {
 					files: []fs.DirEntry{
 						dirEntry{name: "file1", isDir: false},
 						dirEntry{name: "file2", isDir: false},
+					},
+				},
+			},
+		},
+		{
+			name: "Delete file in the middle",
+			fields: fields{
+				cfg: config.Config{
+					Settings: config.Settings{Keymap: config.Keymap{Delete: "d"}},
+				},
+				cwd: "/test",
+				files: []fs.DirEntry{
+					dirEntry{name: "file1", isDir: false},
+					dirEntry{name: "file2", isDir: false},
+					dirEntry{name: "file3", isDir: false},
+					dirEntry{name: "file4", isDir: false},
+					dirEntry{name: "file5", isDir: false},
+					dirEntry{name: "file6", isDir: false},
+					dirEntry{name: "file7", isDir: false},
+					dirEntry{name: "file8", isDir: false},
+					dirEntry{name: "file9", isDir: false},
+				},
+				cursor:              position{r: 1, c: 1},
+				cachedDirSelections: map[string]string{},
+				maxRows:             3,
+			},
+			mocks: mocks{
+				removeFile: func(m Model) func(string) error {
+					return func(string) error { return nil }
+				},
+				readDir: func(m Model) func(string) ([]fs.DirEntry, error) {
+					return func(string) ([]fs.DirEntry, error) {
+						return []fs.DirEntry{
+							dirEntry{name: "file1", isDir: false},
+							dirEntry{name: "file2", isDir: false},
+							dirEntry{name: "file3", isDir: false},
+							dirEntry{name: "file4", isDir: false},
+							dirEntry{name: "file6", isDir: false},
+							dirEntry{name: "file7", isDir: false},
+							dirEntry{name: "file8", isDir: false},
+							dirEntry{name: "file9", isDir: false},
+						}, nil
+					}
+				},
+			},
+			args: args{
+				msg: tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'d'}},
+			},
+			wantFunc: func(m Model) Model {
+				m.cursor = position{r: 1, c: 1}
+				m.files = []fs.DirEntry{
+					dirEntry{name: "file1", isDir: false},
+					dirEntry{name: "file2", isDir: false},
+					dirEntry{name: "file3", isDir: false},
+					dirEntry{name: "file4", isDir: false},
+					dirEntry{name: "file6", isDir: false},
+					dirEntry{name: "file7", isDir: false},
+					dirEntry{name: "file8", isDir: false},
+					dirEntry{name: "file9", isDir: false},
+				}
+				return m
+			},
+			wantMsgs: []tea.Msg{
+				dirLoaded{
+					path: "/test",
+					files: []fs.DirEntry{
+						dirEntry{name: "file1", isDir: false},
+						dirEntry{name: "file2", isDir: false},
+						dirEntry{name: "file3", isDir: false},
+						dirEntry{name: "file4", isDir: false},
+						dirEntry{name: "file6", isDir: false},
+						dirEntry{name: "file7", isDir: false},
+						dirEntry{name: "file8", isDir: false},
+						dirEntry{name: "file9", isDir: false},
 					},
 				},
 			},
