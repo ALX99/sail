@@ -89,7 +89,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.cursor.r = max(0, m.cursor.r-1)
 		case m.cfg.Settings.Keymap.NavDown:
 			if m.cursor.c == 0 {
-				m.cursor.r = min(m.cursor.r+1, m.maxRows-1)
+				m.cursor.r = min(m.cursor.r+1, min(len(m.files)-1, m.maxRows-1))
 			} else {
 				if m.cursorOffset() < len(m.files)-1 {
 					m.cursor.r = min(m.cursor.r+1, m.maxRows-1)

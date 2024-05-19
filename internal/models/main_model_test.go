@@ -248,25 +248,15 @@ func TestModel_Update(t *testing.T) {
 					dirEntry{name: "file1", isDir: false},
 					dirEntry{name: "file2", isDir: false},
 				},
-				cursor:              position{r: 0, c: 1},
+				cursor:              position{r: 1, c: 0},
 				cachedDirSelections: map[string]string{},
 				maxRows:             10,
 			},
 			args: args{
 				msg: tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'s'}},
 			},
-			want: Model{
-				cfg: config.Config{
-					Settings: config.Settings{Keymap: config.Keymap{NavDown: "s"}},
-				},
-				cwd: "/testpath",
-				files: []fs.DirEntry{
-					dirEntry{name: "file1", isDir: false},
-					dirEntry{name: "file2", isDir: false},
-				},
-				cursor:              position{r: 0, c: 1},
-				cachedDirSelections: map[string]string{},
-				maxRows:             10,
+			wantFunc: func(m Model) Model {
+				return m
 			},
 		},
 		{
