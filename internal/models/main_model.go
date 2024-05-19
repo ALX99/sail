@@ -243,12 +243,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func (m Model) View() string {
-	t := time.Now()
-	defer func() { log.Trace().Msgf("Rendered in %v", time.Since(t)) }()
-
-	m.sb.Reset()
-
+// viewCWD renders the current working directory
+func (m Model) viewCWD() string {
 	// some eye candy; directories end with a slash
 	if m.cwd != "/" {
 		m.cwd += "/"
@@ -268,6 +264,15 @@ func (m Model) View() string {
 		m.sb.WriteString(m.cwd)
 	}
 
+	return m.sb.String()
+}
+
+func (m Model) View() string {
+	t := time.Now()
+	defer func() { log.Trace().Msgf("Rendered in %v", time.Since(t)) }()
+
+	m.sb.Reset()
+	m.sb.WriteString(m.viewCWD())
 	m.sb.WriteString("\n\n")
 
 	grid := make([][]fs.DirEntry, 0, m.maxRows)
@@ -290,17 +295,11 @@ func (m Model) View() string {
 				m.sb.WriteString(white.Render(">"))
 			}
 
-			rightPad := 0
+			// +3 because of (cursor, selection and 1 space for next row)
+			rightPad := maxColNameLen[col] - len(f.Name()) + 3
 
-			// only pad if the column is not the last column
-			if col < len(grid[row]) {
-				// +3 because we want at least one space between the file name and the next column
-				// and we can get +2 extra characters before the name (cursor + selection)
-				rightPad = maxColNameLen[col] - len(f.Name()) + 3
-
-				if m.cursor.r == row && m.cursor.c == col {
-					rightPad--
-				}
+			if m.cursor.r == row && m.cursor.c == col {
+				rightPad--
 			}
 
 			if m.isSelected(f.Name()) {
@@ -308,9 +307,8 @@ func (m Model) View() string {
 				rightPad--
 			}
 
-			m.sb.WriteString(util.GetStyle(f).
-				PaddingRight(rightPad).
-				Render(f.Name()))
+			m.sb.WriteString(util.GetStyle(f).Render(f.Name()))
+			m.sb.WriteString(strings.Repeat(" ", rightPad))
 		}
 		m.sb.WriteString("\n")
 
