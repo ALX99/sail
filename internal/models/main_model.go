@@ -113,7 +113,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, m.loadDir(path.Join(m.cwd, m.files[m.cursorOffset()].Name()))
 			}
 		case m.cfg.Settings.Keymap.NavHome:
-			return m, m.loadDir(os.Getenv("HOME"))
+			home, err := os.UserHomeDir()
+			if err != nil {
+				m.lastError = err
+				return m, nil
+			}
+			return m, m.loadDir(home)
 		case m.cfg.Settings.Keymap.Delete:
 			if len(m.files) > 0 {
 				// we optimistically believe that the file will be deleted
