@@ -87,31 +87,29 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case m.cfg.Settings.Keymap.NavUp:
 			m.cursor.r = max(0, m.cursor.r-1)
+
 		case m.cfg.Settings.Keymap.NavDown:
-			if m.cursor.c == 0 {
-				m.cursor.r = min(m.cursor.r+1, min(len(m.files)-1, m.maxRows-1))
-			} else {
-				if m.cursorOffset() < len(m.files)-1 {
-					m.cursor.r = min(m.cursor.r+1, m.maxRows-1)
-				}
-			}
-			return m, nil
+			return m.goDown(), nil
 
 		case m.cfg.Settings.Keymap.NavLeft:
 			m.cursor.c = max(0, m.cursor.c-1)
+
 			return m, nil
 		case m.cfg.Settings.Keymap.NavRight:
 			m.cursor.c++
 			if m.cursorOffset() >= len(m.files) {
 				m.cursor.c--
 			}
+
 			return m, nil
 		case m.cfg.Settings.Keymap.NavOut:
 			return m, m.loadDir(path.Dir(m.cwd))
+
 		case m.cfg.Settings.Keymap.NavIn:
 			if len(m.files) > 0 && m.files[m.cursorOffset()].IsDir() {
 				return m, m.loadDir(path.Join(m.cwd, m.files[m.cursorOffset()].Name()))
 			}
+
 		case m.cfg.Settings.Keymap.NavHome:
 			home, err := os.UserHomeDir()
 			if err != nil {
@@ -119,7 +117,19 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			}
 			return m, m.loadDir(home)
+
 		case m.cfg.Settings.Keymap.Delete:
+			if len(m.files) <= 0 {
+				return m, nil
+			}
+			// we optimistically believe that the file will be deleted
+			delete(m.cachedDirSelections, m.cwd)
+			return m, sequentially(
+				func() tea.Msg {
+					return osi.RemoveAll(path.Join(m.cwd, m.files[m.cursorOffset()].Name()))
+				},
+				m.loadDir(m.cwd),
+			)
 			if len(m.files) > 0 {
 				// we optimistically believe that the file will be deleted
 				delete(m.cachedDirSelections, m.cwd)
@@ -326,6 +336,17 @@ func (m Model) writeLastWD() error {
 	defer f.Close()
 	_, err = f.WriteString(m.cwd)
 	return err
+}
+
+func (m Model) goDown() Model {
+	if m.cursor.c == 0 {
+		m.cursor.r = min(m.cursor.r+1, min(len(m.files)-1, m.maxRows-1))
+	} else {
+		if m.cursorOffset() < len(m.files)-1 {
+			m.cursor.r = min(m.cursor.r+1, m.maxRows-1)
+		}
+	}
+	return m
 }
 
 // sequentially produces a command that sequentially executes the given
