@@ -367,12 +367,8 @@ func (m Model) writeLastWD() error {
 }
 
 func (m Model) goDown() Model {
-	if m.cursor.c == 0 {
-		m.cursor.r = min(m.cursor.r+1, min(len(m.files)-1, m.maxRows-1))
-	} else {
-		if m.cursorOffset() < len(m.files)-1 {
-			m.cursor.r = min(m.cursor.r+1, m.maxRows-1)
-		}
+	if m.cursorOffset() < len(m.files)-1 {
+		m.cursor.r = min(m.cursor.r+1, m.maxRows-1)
 	}
 	return m
 }
