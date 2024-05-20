@@ -116,17 +116,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			}
 
-			currentFile := m.files[m.cursorOffset()]
-
-			if currentFile.IsDir() {
-				return m, m.loadDir(path.Join(m.cwd, currentFile.Name()))
+			currFile := m.currFile()
+			if currFile.IsDir() {
+				return m, m.loadDir(path.Join(m.cwd, currFile.Name()))
 			}
 
-			if currentFile.Type() != fs.ModeSymlink {
+			if currFile.Type() != fs.ModeSymlink {
 				return m, nil
 			}
 
-			path, err := os.Readlink(path.Join(m.cwd, currentFile.Name()))
+			path, err := os.Readlink(path.Join(m.cwd, currFile.Name()))
 			if err != nil {
 				m.lastError = err
 				return m, nil
@@ -157,7 +156,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return m, sequentially(
 				func() tea.Msg {
-					return osi.RemoveAll(path.Join(m.cwd, m.files[m.cursorOffset()].Name()))
+					return osi.RemoveAll(path.Join(m.cwd, m.currFile().Name()))
 				},
 				m.loadDir(m.cwd),
 			)
@@ -167,7 +166,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			}
 
-			fName := path.Join(m.cwd, m.files[m.cursorOffset()].Name())
+			fName := path.Join(m.cwd, m.currFile().Name())
 			if _, ok := m.selectedFiles[fName]; ok {
 				delete(m.selectedFiles, fName)
 				log.Debug().Msgf("Deselected %s", fName)
@@ -181,7 +180,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		var fName string
 		if len(m.files) > 0 {
-			fName = m.files[m.cursorOffset()].Name()
+			fName = m.currFile().Name()
 		}
 
 		m.maxRows = min(defaultMaxRows, max(1, msg.Height-3))
@@ -199,7 +198,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		if len(m.files) > 0 {
 			// cache the selected file for the previous directory
-			m.cachedDirSelections[oldDir] = m.files[m.cursorOffset()].Name()
+			m.cachedDirSelections[oldDir] = m.currFile().Name()
 		}
 
 		m.cwd = newDir
@@ -407,6 +406,10 @@ func (m Model) goUp(wrap bool) Model {
 func (m Model) isSelected(name string) bool {
 	_, ok := m.selectedFiles[path.Join(m.cwd, name)]
 	return ok
+}
+
+func (m Model) currFile() fs.DirEntry {
+	return m.files[m.cursorOffset()]
 }
 
 // sequentially produces a command that sequentially executes the given
