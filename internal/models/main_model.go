@@ -92,10 +92,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 
 		case m.cfg.Settings.Keymap.NavUp:
-			m.cursor.r = max(0, m.cursor.r-1)
+			return m.goUp(false), nil
 
 		case m.cfg.Settings.Keymap.NavDown:
-			return m.goDown(), nil
+			return m.goDown(false), nil
 
 		case m.cfg.Settings.Keymap.NavLeft:
 			m.cursor.c = max(0, m.cursor.c-1)
@@ -151,21 +151,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				log.Debug().Msgf("Selected %s", fName)
 			}
 
-			prevCursor := m.cursor
-			m = m.goDown()
-			if prevCursor != m.cursor {
-				return m, nil
-			}
-
-			// If the cursor did not move, it HAS to mean we are at the
-			// end of a row. Try to move to the next column
-			if m.cursorOffset()+1 < len(m.files) {
-				m.setCursor(0, m.cursor.c+1)
-			} else {
-				// here we MUST be at the end of the list
-				m.setCursor(0, 0)
-			}
-			return m, nil
+			return m.goDown(true), nil
 		}
 	case tea.WindowSizeMsg:
 		var fName string
@@ -366,10 +352,39 @@ func (m Model) writeLastWD() error {
 	return err
 }
 
-func (m Model) goDown() Model {
+func (m Model) goDown(wrap bool) Model {
+	prevCursor := m.cursor
 	if m.cursorOffset() < len(m.files)-1 {
 		m.cursor.r = min(m.cursor.r+1, m.maxRows-1)
 	}
+
+	if prevCursor == m.cursor && wrap {
+		if m.cursorOffset()+1 < len(m.files) {
+			m.setCursor(0, m.cursor.c+1)
+		} else {
+			// here we MUST be at the end of the list
+			m.setCursor(0, 0)
+		}
+	}
+
+	return m
+}
+
+func (m Model) goUp(wrap bool) Model {
+	prevCursor := m.cursor
+	if m.cursor.r > 0 {
+		m.cursor.r--
+	}
+
+	if prevCursor == m.cursor && wrap {
+		if m.cursorOffset() > 0 {
+			m.setCursor(m.maxRows-1, m.cursor.c-1)
+		} else {
+			// here we MUST be at the beginning of the list
+			m.setCursor(max(0, len(m.files)%m.maxRows-1), len(m.files)/m.maxRows)
+		}
+	}
+
 	return m
 }
 
