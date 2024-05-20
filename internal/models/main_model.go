@@ -396,7 +396,7 @@ func (m Model) goUp(wrap bool) Model {
 			m.setCursor(m.maxRows-1, m.cursor.c-1)
 		} else {
 			// here we MUST be at the beginning of the list
-			m.setCursor(max(0, len(m.files)%m.maxRows-1), len(m.files)/m.maxRows)
+			m.setCursor((len(m.files)-1)%m.maxRows, (len(m.files)-1)/m.maxRows)
 		}
 	}
 
