@@ -112,9 +112,36 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, m.loadDir(path.Dir(m.cwd))
 
 		case m.cfg.Settings.Keymap.NavIn:
-			if len(m.files) > 0 && m.files[m.cursorOffset()].IsDir() {
-				return m, m.loadDir(path.Join(m.cwd, m.files[m.cursorOffset()].Name()))
+			if len(m.files) <= 0 {
+				return m, nil
 			}
+
+			currentFile := m.files[m.cursorOffset()]
+
+			if currentFile.IsDir() {
+				return m, m.loadDir(path.Join(m.cwd, currentFile.Name()))
+			}
+
+			if currentFile.Type() != fs.ModeSymlink {
+				return m, nil
+			}
+
+			path, err := os.Readlink(path.Join(m.cwd, currentFile.Name()))
+			if err != nil {
+				m.lastError = err
+				return m, nil
+			}
+
+			info, err := os.Stat(path)
+			if err != nil {
+				m.lastError = err
+				return m, nil
+			}
+
+			if info.IsDir() {
+				return m, m.loadDir(path)
+			}
+			return m, nil
 
 		case m.cfg.Settings.Keymap.NavHome:
 			home, err := os.UserHomeDir()
