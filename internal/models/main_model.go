@@ -128,8 +128,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if len(m.files) <= 0 {
 				return m, nil
 			}
-			// we optimistically believe that the file will be deleted
-			delete(m.cachedDirSelections, m.cwd)
 			return m, sequentially(
 				func() tea.Msg {
 					return osi.RemoveAll(path.Join(m.cwd, m.files[m.cursorOffset()].Name()))
@@ -169,27 +167,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		oldDir := m.cwd
 		newDir := msg.path
 
-		/// special case
-		if oldDir == newDir {
-			m.files = msg.files
-			if len(m.files) > 0 {
-				name, ok := m.cachedDirSelections[newDir]
-				if ok {
-					m.trySelectFile(name)
-					if m.cursor.r == 0 && m.cursor.c == 0 {
-						delete(m.cachedDirSelections, newDir)
-					}
-				} else {
-					m.trySelectFile(m.files[min(m.cursorOffset(), len(m.files)-1)].Name())
-				}
-				m.cachedDirSelections[newDir] = m.files[m.cursorOffset()].Name()
-			} else {
-				delete(m.cachedDirSelections, newDir)
-				m.setCursor(0, 0)
-			}
-			return m, nil
-		}
-
 		if m.prevCWD == "" && oldDir != newDir {
 			m.prevCWD = oldDir
 		}
@@ -208,9 +185,15 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			fName = path.Base(oldDir)
 		}
 
-		m.trySelectFile(fName)
-		m.clearAnimAt = time.Now().Add(pathAnimDuration)
+		if fName != "" {
+			if !m.trySelectFile(fName) {
+				m.ensureNoCursorOOB()
+			}
+		} else {
+			m.setCursor(0, 0)
+		}
 
+		m.clearAnimAt = time.Now().Add(pathAnimDuration)
 		return m, func() tea.Msg {
 			time.Sleep(pathAnimDuration)
 			return clearPrevCWD{}
@@ -327,17 +310,24 @@ func (m *Model) setCursor(r, c int) {
 	m.cursor.r = r
 }
 
-// trySelectFile tries to select a file by name or sets the cursor to the first file
-// if the file is not found.
-func (m *Model) trySelectFile(fName string) {
+// trySelectFile tries to select a file by name.
+// It returns true if the file was found and selected.
+func (m *Model) trySelectFile(fName string) bool {
 	index := slices.IndexFunc(m.files, func(dir fs.DirEntry) bool {
 		return dir.Name() == fName
 	})
 
 	if index != -1 {
 		m.setCursor(index%m.maxRows, index/m.maxRows)
-	} else {
-		m.setCursor(0, 0)
+	}
+	return index != -1
+}
+
+// ensureNoCursorOOB ensures that the cursor is not out of bounds
+// by moving the cursor upwards until it is within the bounds.
+func (m *Model) ensureNoCursorOOB() {
+	for m.cursorOffset() > 0 && m.cursorOffset() > len(m.files)-1 {
+		*m = m.goUp(true)
 	}
 }
 
@@ -377,7 +367,7 @@ func (m Model) goUp(wrap bool) Model {
 	}
 
 	if prevCursor == m.cursor && wrap {
-		if m.cursorOffset() > 0 {
+		if m.cursor.c > 0 {
 			m.setCursor(m.maxRows-1, m.cursor.c-1)
 		} else {
 			// here we MUST be at the beginning of the list

@@ -389,6 +389,7 @@ func TestModel_Update(t *testing.T) {
 				}
 				return m
 			},
+			filterMsgs: []tea.Msg{clearPrevCWD{}},
 		},
 		{
 			name: "Load same directory when files deleted",
@@ -413,6 +414,7 @@ func TestModel_Update(t *testing.T) {
 				m.cursor = position{}
 				return m
 			},
+			filterMsgs: []tea.Msg{clearPrevCWD{}},
 		},
 		{
 			name: "Load same directory when previous selected files deleted",
@@ -437,9 +439,10 @@ func TestModel_Update(t *testing.T) {
 				m.cursor = position{}
 				return m
 			},
+			filterMsgs: []tea.Msg{clearPrevCWD{}},
 		},
 		{
-			name: "Delete last file in column",
+			name: "Delete last file in a column",
 			fields: fields{
 				cfg: config.Config{
 					Settings: config.Settings{Keymap: config.Keymap{Delete: "d"}},
@@ -471,9 +474,10 @@ func TestModel_Update(t *testing.T) {
 					files: []fs.DirEntry{dirEntry{name: "file1", isDir: false}},
 				},
 			},
+			filterMsgs: []tea.Msg{clearPrevCWD{}},
 		},
 		{
-			name: "Delete last file in row",
+			name: "Delete last file in a row",
 			fields: fields{
 				cfg: config.Config{
 					Settings: config.Settings{Keymap: config.Keymap{Delete: "d"}},
@@ -508,9 +512,10 @@ func TestModel_Update(t *testing.T) {
 					},
 				},
 			},
+			filterMsgs: []tea.Msg{clearPrevCWD{}},
 		},
 		{
-			name: "Delete last file in column",
+			name: "Delete last file in a column 2",
 			fields: fields{
 				cfg: config.Config{
 					Settings: config.Settings{Keymap: config.Keymap{Delete: "d"}},
@@ -545,6 +550,7 @@ func TestModel_Update(t *testing.T) {
 					},
 				},
 			},
+			filterMsgs: []tea.Msg{clearPrevCWD{}},
 		},
 		{
 			name: "Delete file in the middle",
@@ -594,6 +600,7 @@ func TestModel_Update(t *testing.T) {
 					},
 				},
 			},
+			filterMsgs: []tea.Msg{clearPrevCWD{}},
 		},
 		{
 			name: "Select file",
