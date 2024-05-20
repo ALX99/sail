@@ -781,6 +781,172 @@ func TestModel_Update(t *testing.T) {
 	}
 }
 
+func TestModel_goUp(t *testing.T) {
+	type fields struct {
+		cwd     string
+		files   []fs.DirEntry
+		cursor  position
+		maxRows int
+	}
+	type args struct {
+		wrap bool
+	}
+	tests := []struct {
+		name   string
+		fields fields
+		args   args
+		want   position
+	}{
+		{
+			name: "Move cursor up one row",
+			fields: fields{
+				files: []fs.DirEntry{
+					dirEntry{name: "file1", isDir: false},
+					dirEntry{name: "file2", isDir: false},
+				},
+				cursor:  position{r: 1, c: 0},
+				maxRows: 10,
+			},
+			args: args{wrap: false},
+			want: position{r: 0, c: 0},
+		},
+		{
+			name: "Move cursor up at top row without wrap",
+			fields: fields{
+				files: []fs.DirEntry{
+					dirEntry{name: "file1", isDir: false},
+					dirEntry{name: "file2", isDir: false},
+				},
+				cursor:  position{r: 0, c: 0},
+				maxRows: 10,
+			},
+			args: args{wrap: false},
+			want: position{r: 0, c: 0},
+		},
+		{
+			name: "Move cursor up at top row with wrap",
+			fields: fields{
+				files: []fs.DirEntry{
+					dirEntry{name: "file1", isDir: false},
+					dirEntry{name: "file2", isDir: false},
+					dirEntry{name: "file3", isDir: false},
+					dirEntry{name: "file4", isDir: false},
+				},
+				cursor:  position{r: 0, c: 0},
+				maxRows: 2,
+			},
+			args: args{wrap: true},
+			want: position{r: 1, c: 1},
+		},
+		{
+			name: "Move cursor up in the middle",
+			fields: fields{
+				files: []fs.DirEntry{
+					dirEntry{name: "file1", isDir: false},
+					dirEntry{name: "file2", isDir: false},
+					dirEntry{name: "file3", isDir: false},
+					dirEntry{name: "file4", isDir: false},
+				},
+				cursor:  position{r: 1, c: 1},
+				maxRows: 2,
+			},
+			args: args{wrap: false},
+			want: position{r: 0, c: 1},
+		},
+		{
+			name: "Move cursor up in the first column with wrap",
+			fields: fields{
+				files: []fs.DirEntry{
+					dirEntry{name: "file1", isDir: false},
+					dirEntry{name: "file2", isDir: false},
+					dirEntry{name: "file3", isDir: false},
+				},
+				cursor:  position{r: 0, c: 1},
+				maxRows: 1,
+			},
+			args: args{wrap: true},
+			want: position{r: 0, c: 0},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := Model{
+				files:   tt.fields.files,
+				cursor:  tt.fields.cursor,
+				maxRows: tt.fields.maxRows,
+			}
+			if got := m.goUp(tt.args.wrap).cursor; got != tt.want {
+				t.Errorf("Model.goUp() = %+v, want %+v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestGoDown(t *testing.T) {
+	tests := []struct {
+		name    string
+		model   Model
+		wrap    bool
+		wantPos position
+	}{
+		{
+			name: "Move down within bounds",
+			model: Model{
+				files:   []fs.DirEntry{dirEntry{name: "file1"}, dirEntry{name: "file2"}},
+				cursor:  position{r: 0, c: 0},
+				maxRows: 2,
+			},
+			wrap:    false,
+			wantPos: position{r: 1, c: 0},
+		},
+		{
+			name: "Move down with wrap at end of list",
+			model: Model{
+				files:   []fs.DirEntry{dirEntry{name: "file1"}, dirEntry{name: "file2"}},
+				cursor:  position{r: 1, c: 0},
+				maxRows: 2,
+			},
+			wrap:    true,
+			wantPos: position{r: 0, c: 0},
+		},
+		{
+			name: "Move down without wrap at end of list",
+			model: Model{
+				files:   []fs.DirEntry{dirEntry{name: "file1"}, dirEntry{name: "file2"}},
+				cursor:  position{r: 1, c: 0},
+				maxRows: 2,
+			},
+			wrap:    false,
+			wantPos: position{r: 1, c: 0},
+		},
+		{
+			name: "Wrap to next column",
+			model: Model{
+				files:   []fs.DirEntry{dirEntry{name: "file1"}, dirEntry{name: "file2"}, dirEntry{name: "file3"}},
+				cursor:  position{r: 1, c: 0},
+				maxRows: 2,
+			},
+			wrap:    true,
+			wantPos: position{r: 0, c: 1},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := tt.model.goDown(tt.wrap)
+			if result.cursor != tt.wantPos {
+				t.Errorf("got cursor position (%+v), want (%+v)", result.cursor, tt.wantPos)
+			}
+		})
+	}
+}
+
+// Helper function to create mock DirEntry
+func mockDirEntry(name string) fs.DirEntry {
+	return dirEntry{name: name}
+}
+
 func shouldIgnoreMsg(msg tea.Msg, filterMsgs []tea.Msg) bool {
 	for _, fMsg := range filterMsgs {
 		if reflect.DeepEqual(fMsg, msg) {
