@@ -214,23 +214,22 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 // viewCWD renders the current working directory
 func (m Model) viewCWD() string {
-	// some eye candy; directories end with a slash
-	if m.cwd != "/" {
-		m.cwd += "/"
+	// If there is no previous CWD, just return the current CWD
+	if m.prevCWD == "" {
+		m.sb.WriteString(m.cwd)
+		if m.cwd == "/" {
+			return m.sb.String()
+		}
+		m.sb.WriteString("/")
+		return m.sb.String()
 	}
 
-	if m.prevCWD != "" {
-		if strings.HasPrefix(m.prevCWD, m.cwd) && len(m.cwd) < len(m.prevCWD) {
-			m.sb.WriteString(m.cwd + red.Render(strings.TrimPrefix(m.prevCWD+"/", m.cwd)))
-		} else if strings.HasPrefix(m.cwd, m.prevCWD) && len(m.cwd) > len(m.prevCWD) {
-			// some eye candy; directories end with a slash
-			if m.prevCWD != "/" {
-				m.prevCWD += "/"
-			}
-			m.sb.WriteString(m.prevCWD + lipgloss.NewStyle().Foreground(lipgloss.Color("#00ff00")).Render(strings.TrimPrefix(m.cwd, m.prevCWD)))
-		}
+	common := longestCommonPath(m.cwd, m.prevCWD) + "/"
+
+	if len(m.cwd) < len(m.prevCWD) {
+		m.sb.WriteString(common + red.Render(strings.TrimPrefix(m.prevCWD+"/", common)))
 	} else {
-		m.sb.WriteString(m.cwd)
+		m.sb.WriteString(common + lipgloss.NewStyle().Foreground(lipgloss.Color("#00ff00")).Render(strings.TrimPrefix(m.cwd, common)+"/"))
 	}
 
 	return m.sb.String()
