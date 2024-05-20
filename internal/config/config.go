@@ -1,6 +1,7 @@
 package config
 
 import (
+	"cmp"
 	"os"
 	"path"
 
@@ -47,8 +48,12 @@ func GetConfig() (Config, error) {
 		},
 	}
 
-	cfgLoc := getCfgFileLoc()
-	f, err := os.ReadFile(cfgLoc)
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return Config{}, err
+	}
+
+	f, err := os.ReadFile(configPath(home))
 	if err != nil {
 		if os.IsNotExist(err) {
 			return cfg, nil
@@ -63,12 +68,7 @@ func GetConfig() (Config, error) {
 	return cfg, nil
 }
 
-// getCfgFileLoc returns the configuration file location
-func getCfgFileLoc() string {
-	dir := os.Getenv("XDG_CONFIG_HOME")
-	if dir != "" {
-		return path.Join(path.Clean(dir), "sail") + "/config.yaml"
-	}
-
-	return "~/.config/sail/config.yaml"
+// configPath returns the configuration file location
+func configPath(homeDir string) string {
+	return path.Join(cmp.Or(os.Getenv("XDG_CONFIG_HOME"), path.Join(homeDir, ".config")), "sail", "config.yaml")
 }
