@@ -33,13 +33,6 @@ func main() {
 		os.Exit(0)
 	}
 
-	cfg, err := config.GetConfig()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "%v\n", err)
-		os.Exit(1)
-	}
-	cfg.PrintLastWD = *printLastWD
-
 	flush := util.SetupLogger(!isDev)
 	defer func() {
 		if logPath, err := flush(); err != nil {
@@ -47,6 +40,13 @@ func main() {
 		}
 	}()
 	log.Info().Msg("Sail started")
+
+	cfg, err := config.GetConfig()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%v\n", err)
+		os.Exit(1)
+	}
+	cfg.PrintLastWD = *printLastWD
 
 	util.SetupStyles()
 

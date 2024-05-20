@@ -5,6 +5,7 @@ import (
 	"os"
 	"path"
 
+	"github.com/rs/zerolog/log"
 	"gopkg.in/yaml.v3"
 )
 
@@ -53,19 +54,17 @@ func GetConfig() (Config, error) {
 		return Config{}, err
 	}
 
-	f, err := os.ReadFile(configPath(home))
+	cfgFile := configPath(home)
+	f, err := os.ReadFile(cfgFile)
 	if err != nil {
 		if os.IsNotExist(err) {
+			log.Warn().Str("path", cfgFile).Msg("No configuration file found, using defaults")
 			return cfg, nil
 		}
 		return Config{}, err
 	}
 
-	if err = yaml.Unmarshal(f, &cfg); err != nil {
-		return Config{}, err
-	}
-
-	return cfg, nil
+	return cfg, yaml.Unmarshal(f, &cfg)
 }
 
 // configPath returns the configuration file location
