@@ -289,19 +289,19 @@ func (m Model) View() string {
 				m.sb.WriteString(white.Render(">"))
 			}
 
-			// +3 because of (cursor, selection and 1 space for next row)
-			rightPad := maxColNameLen[col] - lipgloss.Width(f.Name()) + 3
+			// +2 because of (cursor and 1 space for next row)
+			rightPad := maxColNameLen[col] - lipgloss.Width(f.Name()) + 2
 
 			if m.cursor.r == row && m.cursor.c == col {
 				rightPad--
 			}
 
+			s := util.GetStyle(f)
 			if m.isSelected(f.Name()) {
-				m.sb.WriteString(white.Render(">"))
-				rightPad--
+				s = s.Copy().Underline(true).Bold(true)
 			}
 
-			m.sb.WriteString(util.GetStyle(f).Render(f.Name()))
+			m.sb.WriteString(s.Render(f.Name()))
 			m.sb.WriteString(strings.Repeat(" ", rightPad))
 		}
 		m.sb.WriteString("\n")
