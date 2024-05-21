@@ -6,6 +6,7 @@ import (
 	"reflect"
 	"slices"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -444,9 +445,6 @@ func TestModel_Update(t *testing.T) {
 		{
 			name: "Delete last file in a column",
 			fields: fields{
-				cfg: config.Config{
-					Settings: config.Settings{Keymap: config.Keymap{Delete: "d"}},
-				},
 				cwd: "/test",
 				files: []fs.DirEntry{
 					dirEntry{name: "file1", isDir: false},
@@ -456,11 +454,8 @@ func TestModel_Update(t *testing.T) {
 				cachedDirSelections: map[string]string{},
 				maxRows:             1,
 			},
-			mocks: mocks{
-				fs: mockOS{},
-			},
 			args: args{
-				msg: tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'d'}},
+				msg: dirLoaded{"/test", []fs.DirEntry{dirEntry{name: "file1", isDir: false}}},
 			},
 			wantFunc: func(m Model) Model {
 				m.cursor = position{}
@@ -468,20 +463,11 @@ func TestModel_Update(t *testing.T) {
 
 				return m
 			},
-			wantMsgs: []tea.Msg{
-				dirLoaded{
-					path:  "/test",
-					files: []fs.DirEntry{dirEntry{name: "file1", isDir: false}},
-				},
-			},
 			filterMsgs: []tea.Msg{clearPrevCWD{}},
 		},
 		{
 			name: "Delete last file in a row",
 			fields: fields{
-				cfg: config.Config{
-					Settings: config.Settings{Keymap: config.Keymap{Delete: "d"}},
-				},
 				cwd: "/test",
 				files: []fs.DirEntry{
 					dirEntry{name: "file1", isDir: false},
@@ -492,34 +478,22 @@ func TestModel_Update(t *testing.T) {
 				cachedDirSelections: map[string]string{},
 				maxRows:             3,
 			},
-			mocks: mocks{
-				fs: mockOS{},
-			},
 			args: args{
-				msg: tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'d'}},
+				msg: dirLoaded{"/test", []fs.DirEntry{
+					dirEntry{name: "file1", isDir: false},
+					dirEntry{name: "file2", isDir: false},
+				}},
 			},
 			wantFunc: func(m Model) Model {
 				m.cursor = position{r: 1, c: 0}
 				m.files = slices.Delete(m.files, 2, 3)
 				return m
 			},
-			wantMsgs: []tea.Msg{
-				dirLoaded{
-					path: "/test",
-					files: []fs.DirEntry{
-						dirEntry{name: "file1", isDir: false},
-						dirEntry{name: "file2", isDir: false},
-					},
-				},
-			},
 			filterMsgs: []tea.Msg{clearPrevCWD{}},
 		},
 		{
 			name: "Delete last file in a column 2",
 			fields: fields{
-				cfg: config.Config{
-					Settings: config.Settings{Keymap: config.Keymap{Delete: "d"}},
-				},
 				cwd: "/test",
 				files: []fs.DirEntry{
 					dirEntry{name: "file1", isDir: false},
@@ -530,34 +504,22 @@ func TestModel_Update(t *testing.T) {
 				cachedDirSelections: map[string]string{},
 				maxRows:             2,
 			},
-			mocks: mocks{
-				fs: mockOS{},
-			},
 			args: args{
-				msg: tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'d'}},
+				msg: dirLoaded{"/test", []fs.DirEntry{
+					dirEntry{name: "file1", isDir: false},
+					dirEntry{name: "file2", isDir: false},
+				}},
 			},
 			wantFunc: func(m Model) Model {
 				m.cursor = position{r: 1, c: 0}
 				m.files = slices.Delete(m.files, 2, 3)
 				return m
 			},
-			wantMsgs: []tea.Msg{
-				dirLoaded{
-					path: "/test",
-					files: []fs.DirEntry{
-						dirEntry{name: "file1", isDir: false},
-						dirEntry{name: "file2", isDir: false},
-					},
-				},
-			},
 			filterMsgs: []tea.Msg{clearPrevCWD{}},
 		},
 		{
 			name: "Delete file in the middle",
 			fields: fields{
-				cfg: config.Config{
-					Settings: config.Settings{Keymap: config.Keymap{Delete: "d"}},
-				},
 				cwd: "/test",
 				files: []fs.DirEntry{
 					dirEntry{name: "file1", isDir: false},
@@ -574,31 +536,22 @@ func TestModel_Update(t *testing.T) {
 				cachedDirSelections: map[string]string{},
 				maxRows:             3,
 			},
-			mocks: mocks{
-				fs: mockOS{},
-			},
 			args: args{
-				msg: tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'d'}},
+				msg: dirLoaded{"/test", []fs.DirEntry{
+					dirEntry{name: "file1", isDir: false},
+					dirEntry{name: "file2", isDir: false},
+					dirEntry{name: "file3", isDir: false},
+					dirEntry{name: "file4", isDir: false},
+					dirEntry{name: "file6", isDir: false},
+					dirEntry{name: "file7", isDir: false},
+					dirEntry{name: "file8", isDir: false},
+					dirEntry{name: "file9", isDir: false},
+				}},
 			},
 			wantFunc: func(m Model) Model {
 				m.cursor = position{r: 1, c: 1}
 				m.files = slices.Delete(m.files, 4, 5)
 				return m
-			},
-			wantMsgs: []tea.Msg{
-				dirLoaded{
-					path: "/test",
-					files: []fs.DirEntry{
-						dirEntry{name: "file1", isDir: false},
-						dirEntry{name: "file2", isDir: false},
-						dirEntry{name: "file3", isDir: false},
-						dirEntry{name: "file4", isDir: false},
-						dirEntry{name: "file6", isDir: false},
-						dirEntry{name: "file7", isDir: false},
-						dirEntry{name: "file8", isDir: false},
-						dirEntry{name: "file9", isDir: false},
-					},
-				},
 			},
 			filterMsgs: []tea.Msg{clearPrevCWD{}},
 		},
@@ -730,6 +683,7 @@ func TestModel_Update(t *testing.T) {
 				lastError:           tt.fields.lastError,
 				selectedFiles:       tt.fields.selectedFiles,
 			}
+			m.RWMutex = &sync.RWMutex{}
 
 			if mock, ok := tt.mocks.fs.(mockOS); ok {
 				mock.addFromModel(m)

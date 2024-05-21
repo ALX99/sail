@@ -6,6 +6,7 @@ import (
 	"path"
 	"slices"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/alx99/sail/internal/config"
@@ -46,6 +47,10 @@ type Model struct {
 	maxRows             int               // the maximum number of rows to display
 	lastError           error             // last error that occurred
 
+	// lock since I do weird things such as updating
+	// arrays/maps outside of the update function
+	*sync.RWMutex
+
 	// for performance purposes
 	sb strings.Builder
 }
@@ -58,6 +63,7 @@ func NewMain(cwd string, cfg config.Config) Model {
 		cachedDirSelections: make(map[string]string, 100),
 		selectedFiles:       make(map[string]any, 100),
 		sb:                  strings.Builder{},
+		RWMutex:             &sync.RWMutex{},
 	}
 }
 
@@ -154,9 +160,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if len(m.files) <= 0 {
 				return m, nil
 			}
-			return m, sequentially(
+			return m, tea.Sequence(
 				func() tea.Msg {
-					return osi.RemoveAll(path.Join(m.cwd, m.currFile().Name()))
+					return m.do(func(path string) error { return osi.RemoveAll(path) })
 				},
 				m.loadDir(m.cwd),
 			)
@@ -165,6 +171,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if len(m.files) <= 0 {
 				return m, nil
 			}
+			m.Lock()
+			defer m.Unlock()
 
 			fName := path.Join(m.cwd, m.currFile().Name())
 			if _, ok := m.selectedFiles[fName]; ok {
@@ -404,27 +412,32 @@ func (m Model) goUp(wrap bool) Model {
 }
 
 func (m Model) isSelected(name string) bool {
+	m.RLock()
 	_, ok := m.selectedFiles[path.Join(m.cwd, name)]
+	m.RUnlock()
 	return ok
+}
+
+// do runs the given function on all selected files, or the file under the cursor
+// if no files are selected. If the function is successful, the selected files are
+// removed from the selected files map.
+func (m Model) do(do func(string) error) error {
+	m.Lock()
+	defer m.Unlock()
+	if len(m.selectedFiles) == 0 {
+		return do(path.Join(m.cwd, m.currFile().Name()))
+	}
+
+	for f := range m.selectedFiles {
+		if err := do(f); err != nil {
+			return err
+		}
+		delete(m.selectedFiles, f)
+	}
+
+	return nil
 }
 
 func (m Model) currFile() fs.DirEntry {
 	return m.files[m.cursorOffset()]
-}
-
-// sequentially produces a command that sequentially executes the given
-// commands.
-// The tea.Msg returned is the first non-nil message returned by a Cmd.
-func sequentially(cmds ...tea.Cmd) tea.Cmd {
-	return func() tea.Msg {
-		for _, cmd := range cmds {
-			if cmd == nil {
-				continue
-			}
-			if msg := cmd(); msg != nil {
-				return msg
-			}
-		}
-		return nil
-	}
 }

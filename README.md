@@ -36,7 +36,7 @@ go install github.com/alx99/sail/cmd/sail@latest
 - [x] LS_COLORS support
 - [x] Customizable keybindings
 - [x] *Sail* into directories
-- [x] Delete files (*partial* support)
+- [x] Delete files
 - [x] Select files
 - [ ] Move files
 - [ ] Copy files
