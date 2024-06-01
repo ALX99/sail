@@ -4,6 +4,7 @@ import (
 	"io/fs"
 	"os"
 	"path"
+	"path/filepath"
 	"slices"
 	"strings"
 	"sync"
@@ -135,6 +136,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if err != nil {
 				m.lastError = err
 				return m, nil
+			}
+
+			// If the symlink is relative, we need to resolve it
+			if !filepath.IsAbs(path) {
+				path = filepath.Join(m.cwd, path)
 			}
 
 			info, err := os.Stat(path)
