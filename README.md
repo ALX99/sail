@@ -38,7 +38,7 @@ go install github.com/alx99/sail/cmd/sail@latest
 - [x] *Sail* into directories
 - [x] Delete files
 - [x] Select files
-- [ ] Move files
+- [x] Move files
 - [ ] Copy files
 - [ ] Rename files
 - [ ] Create files

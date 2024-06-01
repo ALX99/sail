@@ -167,6 +167,18 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.loadDir(m.cwd),
 			)
 
+		case m.cfg.Settings.Keymap.Paste:
+			if len(m.selectedFiles) <= 0 {
+				return m, nil
+			}
+
+			return m, tea.Sequence(
+				func() tea.Msg {
+					return m.do(func(f string) error { return osi.rename(f, path.Join(m.cwd, path.Base(f))) })
+				},
+				m.loadDir(m.cwd),
+			)
+
 		case m.cfg.Settings.Keymap.Select:
 			if len(m.files) <= 0 {
 				return m, nil
@@ -335,7 +347,7 @@ func (m Model) loadDir(path string) tea.Cmd {
 }
 
 func (m Model) logCursor() {
-	log.Trace().Msgf("cursor(%v, %v)", m.cursor.c, m.cursor.r)
+	log.Trace().Msgf("cursor(%v, %v), selected(%v)", m.cursor.r, m.cursor.c, m.selectedFiles)
 }
 
 func (m *Model) setCursor(r, c int) {

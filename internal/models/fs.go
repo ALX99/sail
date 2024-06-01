@@ -8,6 +8,7 @@ import (
 type fsys interface {
 	ReadDir(path string) ([]fs.DirEntry, error)
 	RemoveAll(path string) error
+	rename(oldPath, newPath string) error
 }
 
 var osi fsys = realOS{}
@@ -20,4 +21,8 @@ func (realOS) ReadDir(path string) ([]fs.DirEntry, error) {
 
 func (realOS) RemoveAll(path string) error {
 	return os.RemoveAll(path)
+}
+
+func (realOS) rename(oldPath, newPath string) error {
+	return os.Rename(oldPath, newPath)
 }

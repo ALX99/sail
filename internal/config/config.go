@@ -28,6 +28,7 @@ type Keymap struct {
 	NavHome  string `yaml:"go_home"`
 	Delete   string `yaml:"delete"`
 	Select   string `yaml:"select"`
+	Paste    string `yaml:"paste"`
 }
 
 // GetConfig reads, pareses and returns the configuration
@@ -45,6 +46,7 @@ func GetConfig() (Config, error) {
 				NavHome:  "~",
 				Delete:   "d",
 				Select:   " ",
+				Paste:    "p",
 			},
 		},
 	}
