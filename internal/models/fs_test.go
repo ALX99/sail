@@ -3,7 +3,7 @@ package models
 import (
 	"io/fs"
 	"os"
-	"path"
+	"path/filepath"
 	"slices"
 )
 
@@ -19,31 +19,31 @@ func (m mockOS) ReadDir(path string) ([]fs.DirEntry, error) {
 }
 
 func (m mockOS) RemoveAll(fPath string) error {
-	dir := path.Dir(fPath)
+	dir := filepath.Dir(fPath)
 	files, ok := m.files[dir]
 	if !ok {
 		return os.ErrNotExist
 	}
 
-	if !slices.ContainsFunc(files, func(f fs.DirEntry) bool { return f.Name() == path.Base(fPath) }) {
+	if !slices.ContainsFunc(files, func(f fs.DirEntry) bool { return f.Name() == filepath.Base(fPath) }) {
 		return os.ErrNotExist
 	}
 
 	m.files[dir] = slices.DeleteFunc(files, func(f fs.DirEntry) bool {
-		return f.Name() == path.Base(fPath)
+		return f.Name() == filepath.Base(fPath)
 	})
 
 	return nil
 }
 
 func (m mockOS) rename(oldPath, newPath string) error {
-	dir := path.Dir(oldPath)
+	dir := filepath.Dir(oldPath)
 	files, ok := m.files[dir]
 	if !ok {
 		return os.ErrNotExist
 	}
 
-	i := slices.IndexFunc(files, func(f fs.DirEntry) bool { return f.Name() == path.Base(oldPath) })
+	i := slices.IndexFunc(files, func(f fs.DirEntry) bool { return f.Name() == filepath.Base(oldPath) })
 	if i == -1 {
 		return os.ErrNotExist
 	}
@@ -51,7 +51,7 @@ func (m mockOS) rename(oldPath, newPath string) error {
 	oldFile := files[i]
 	m.files[dir] = slices.Delete(files, i, i+1)
 
-	dir = path.Dir(newPath)
+	dir = filepath.Dir(newPath)
 	if _, ok := m.files[dir]; !ok {
 		m.files[dir] = []fs.DirEntry{}
 	}

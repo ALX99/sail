@@ -3,7 +3,7 @@ package config
 import (
 	"cmp"
 	"os"
-	"path"
+	"path/filepath"
 
 	"github.com/rs/zerolog/log"
 	"gopkg.in/yaml.v3"
@@ -71,5 +71,5 @@ func GetConfig() (Config, error) {
 
 // configPath returns the configuration file location
 func configPath(homeDir string) string {
-	return path.Join(cmp.Or(os.Getenv("XDG_CONFIG_HOME"), path.Join(homeDir, ".config")), "sail", "config.yaml")
+	return filepath.Join(cmp.Or(os.Getenv("XDG_CONFIG_HOME"), filepath.Join(homeDir, ".config")), "sail", "config.yaml")
 }

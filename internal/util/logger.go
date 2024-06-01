@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path"
 	"path/filepath"
 	"strings"
 
@@ -16,7 +15,7 @@ import (
 
 // SetupLogger sets up the global logger
 func SetupLogger(buffered bool) (flush func() (string, error)) {
-	fPath := path.Join(os.TempDir(), "sail.log")
+	fPath := filepath.Join(os.TempDir(), "sail.log")
 	f, err := os.Create(fPath)
 	if err != nil {
 		panic(err)
@@ -42,7 +41,7 @@ func SetupLogger(buffered bool) (flush func() (string, error)) {
 		Logger()
 	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
 
-	switch strings.ToLower("debug") {
+	switch strings.ToLower("trace") {
 	case "trace":
 		zerolog.SetGlobalLevel(zerolog.TraceLevel)
 	case "debug":

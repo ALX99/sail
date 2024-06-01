@@ -3,7 +3,6 @@ package models
 import (
 	"io/fs"
 	"os"
-	"path"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -116,7 +115,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 			return m, nil
 		case m.cfg.Settings.Keymap.NavOut:
-			return m, m.loadDir(path.Dir(m.cwd))
+			return m, m.loadDir(filepath.Dir(m.cwd))
 
 		case m.cfg.Settings.Keymap.NavIn:
 			if len(m.files) <= 0 {
@@ -125,14 +124,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 			currFile := m.currFile()
 			if currFile.IsDir() {
-				return m, m.loadDir(path.Join(m.cwd, currFile.Name()))
+				return m, m.loadDir(filepath.Join(m.cwd, currFile.Name()))
 			}
 
 			if currFile.Type() != fs.ModeSymlink {
 				return m, nil
 			}
 
-			path, err := os.Readlink(path.Join(m.cwd, currFile.Name()))
+			path, err := os.Readlink(filepath.Join(m.cwd, currFile.Name()))
 			if err != nil {
 				m.lastError = err
 				return m, nil
@@ -180,7 +179,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 			return m, tea.Sequence(
 				func() tea.Msg {
-					return m.do(func(f string) error { return osi.rename(f, path.Join(m.cwd, path.Base(f))) })
+					return m.do(func(f string) error { return osi.rename(f, filepath.Join(m.cwd, filepath.Base(f))) })
 				},
 				m.loadDir(m.cwd),
 			)
@@ -192,7 +191,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.Lock()
 			defer m.Unlock()
 
-			fName := path.Join(m.cwd, m.currFile().Name())
+			fName := filepath.Join(m.cwd, m.currFile().Name())
 			if _, ok := m.selectedFiles[fName]; ok {
 				delete(m.selectedFiles, fName)
 				log.Debug().Msgf("Deselected %s", fName)
@@ -231,10 +230,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.files = msg.files
 
 		fName, ok := m.cachedDirSelections[newDir]
-		if !ok && path.Join(newDir, path.Base(oldDir)) == oldDir {
+		if !ok && filepath.Join(newDir, filepath.Base(oldDir)) == oldDir {
 			// in case of a navigation to the parent directory
 			// select the parent directory in the parent directory
-			fName = path.Base(oldDir)
+			fName = filepath.Base(oldDir)
 		}
 
 		if fName != "" {
@@ -431,7 +430,7 @@ func (m Model) goUp(wrap bool) Model {
 
 func (m Model) isSelected(name string) bool {
 	m.RLock()
-	_, ok := m.selectedFiles[path.Join(m.cwd, name)]
+	_, ok := m.selectedFiles[filepath.Join(m.cwd, name)]
 	m.RUnlock()
 	return ok
 }
@@ -443,7 +442,7 @@ func (m Model) do(do func(string) error) error {
 	m.Lock()
 	defer m.Unlock()
 	if len(m.selectedFiles) == 0 {
-		return do(path.Join(m.cwd, m.currFile().Name()))
+		return do(filepath.Join(m.cwd, m.currFile().Name()))
 	}
 
 	for f := range m.selectedFiles {
