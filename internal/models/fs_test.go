@@ -60,6 +60,30 @@ func (m mockOS) rename(oldPath, newPath string) error {
 	return nil
 }
 
+func (m mockOS) copyAll(oldPath, newPath string) error {
+	dir := filepath.Dir(oldPath)
+	files, ok := m.files[dir]
+	if !ok {
+		return os.ErrNotExist
+	}
+
+	i := slices.IndexFunc(files, func(f fs.DirEntry) bool { return f.Name() == filepath.Base(oldPath) })
+	if i == -1 {
+		return os.ErrNotExist
+	}
+
+	oldFile := files[i]
+	m.files[dir] = slices.Delete(files, i, i+1)
+
+	dir = filepath.Dir(newPath)
+	if _, ok := m.files[dir]; !ok {
+		m.files[dir] = []fs.DirEntry{}
+	}
+
+	m.files[dir] = append(m.files[dir], oldFile)
+	return nil
+}
+
 func (m *mockOS) addFromModel(model Model) {
 	if m.files == nil {
 		m.files = make(map[string][]fs.DirEntry)

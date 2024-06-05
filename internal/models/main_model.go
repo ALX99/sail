@@ -46,6 +46,8 @@ type Model struct {
 	selectedFiles       map[string]any    // selected files
 	maxRows             int               // the maximum number of rows to display
 	lastError           error             // last error that occurred
+	termCols            int               // max width of the terminal window
+	termRows            int               // max height of the terminal window
 
 	// lock since I do weird things such as updating
 	// arrays/maps outside of the update function
@@ -184,6 +186,18 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.loadDir(m.cwd),
 			)
 
+		case m.cfg.Settings.Keymap.Copy:
+			if len(m.selectedFiles) <= 0 {
+				return m, nil
+			}
+
+			return m, tea.Sequence(
+				func() tea.Msg {
+					return m.do(func(f string) error { return osi.copyAll(f, m.cwd) })
+				},
+				m.loadDir(m.cwd),
+			)
+
 		case m.cfg.Settings.Keymap.Select:
 			if len(m.files) <= 0 {
 				return m, nil
@@ -209,6 +223,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		m.maxRows = min(defaultMaxRows, max(1, msg.Height-3))
+		m.termCols = msg.Width
+		m.termRows = msg.Height
 
 		m.trySelectFile(fName)
 

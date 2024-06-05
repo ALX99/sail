@@ -29,6 +29,7 @@ type Keymap struct {
 	Delete   string `yaml:"delete"`
 	Select   string `yaml:"select"`
 	Paste    string `yaml:"paste"`
+	Copy     string `yaml:"copy"`
 }
 
 // GetConfig reads, pareses and returns the configuration
@@ -47,6 +48,7 @@ func GetConfig() (Config, error) {
 				Delete:   "d",
 				Select:   " ",
 				Paste:    "p",
+				Copy:     "c",
 			},
 		},
 	}
