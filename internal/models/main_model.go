@@ -20,6 +20,7 @@ const defaultMaxRows = 10
 
 var (
 	pathAnimDuration = 250 * time.Millisecond
+	errShowDuration  = time.Second
 	white            = lipgloss.NewStyle().Foreground(lipgloss.Color("#ffffff"))
 	red              = lipgloss.NewStyle().Foreground(lipgloss.Color("#ff0000"))
 )
@@ -46,6 +47,7 @@ type Model struct {
 	selectedFiles       map[string]any    // selected files
 	maxRows             int               // the maximum number of rows to display
 	lastError           error             // last error that occurred
+	clearErrAt          time.Time         // time when the error should be cleared
 	termCols            int               // max width of the terminal window
 	termRows            int               // max height of the terminal window
 
@@ -80,7 +82,7 @@ func (m Model) cursorOffset() int {
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// clear the last error
-	if m.lastError != nil {
+	if m.lastError != nil && time.Now().After(m.clearErrAt) {
 		m.lastError = nil
 	}
 	defer func() {
@@ -135,7 +137,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 			path, err := os.Readlink(filepath.Join(m.cwd, currFile.Name()))
 			if err != nil {
-				m.lastError = err
+				m.setError(err)
 				return m, nil
 			}
 
@@ -146,7 +148,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 			info, err := os.Stat(path)
 			if err != nil {
-				m.lastError = err
+				m.setError(err)
 				return m, nil
 			}
 
@@ -158,7 +160,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case m.cfg.Settings.Keymap.NavHome:
 			home, err := os.UserHomeDir()
 			if err != nil {
-				m.lastError = err
+				m.setError(err)
 				return m, nil
 			}
 			return m, m.loadDir(home)
@@ -271,7 +273,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 	case error:
-		m.lastError = msg
+		m.setError(msg)
 		log.Error().Err(msg).Msg("Error occurred")
 		return m, nil
 	}
@@ -449,6 +451,11 @@ func (m Model) isSelected(name string) bool {
 	_, ok := m.selectedFiles[filepath.Join(m.cwd, name)]
 	m.RUnlock()
 	return ok
+}
+
+func (m *Model) setError(err error) {
+	m.lastError = err
+	m.clearErrAt = time.Now().Add(errShowDuration)
 }
 
 // do runs the given function on all selected files, or the file under the cursor
