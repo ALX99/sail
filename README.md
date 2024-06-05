@@ -67,6 +67,7 @@ settings:
     go_home: "~"
     delete: "d"
     select: " "
+    paste: "p"
     copy: "c"
 ```
 
