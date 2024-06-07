@@ -57,6 +57,7 @@ If the file is not found, it will use the following default configuration:
 
 ```yaml
 settings:
+  alt_screen: true
   keymap:
     left: "h"
     up: "j"

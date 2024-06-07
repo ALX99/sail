@@ -56,7 +56,12 @@ func main() {
 		os.Exit(1)
 	}
 
-	_, err = tea.NewProgram(models.NewMain(cwd, cfg)).Run()
+	var opts []tea.ProgramOption
+	if cfg.Settings.AltScreen {
+		opts = append(opts, tea.WithAltScreen())
+	}
+
+	_, err = tea.NewProgram(models.NewMain(cwd, cfg), opts...).Run()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		os.Exit(1)

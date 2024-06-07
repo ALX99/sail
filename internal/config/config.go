@@ -16,7 +16,8 @@ type Config struct {
 }
 
 type Settings struct {
-	Keymap Keymap `yaml:"keymap"`
+	Keymap    Keymap `yaml:"keymap"`
+	AltScreen bool   `yaml:"alt_screen"`
 }
 type Keymap struct {
 	NavUp    string `yaml:"up"`
@@ -50,6 +51,7 @@ func GetConfig() (Config, error) {
 				Paste:    "p",
 				Copy:     "c",
 			},
+			AltScreen: true,
 		},
 	}
 
