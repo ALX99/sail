@@ -293,6 +293,12 @@ func (m Model) viewCWD() string {
 		return m.sb.String()
 	}
 
+	if m.cwd == m.prevCWD {
+		m.sb.WriteString(m.cwd)
+		m.sb.WriteString("/")
+		return m.sb.String()
+	}
+
 	common := longestCommonPath(m.cwd, m.prevCWD) + "/"
 
 	if len(m.cwd) < len(m.prevCWD) {
