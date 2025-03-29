@@ -20,17 +20,16 @@ type Settings struct {
 	AltScreen bool   `yaml:"alt_screen"`
 }
 type Keymap struct {
-	NavUp    string `yaml:"up"`
-	NavDown  string `yaml:"down"`
-	NavLeft  string `yaml:"left"`
-	NavRight string `yaml:"right"`
-	NavIn    string `yaml:"in"`
-	NavOut   string `yaml:"out"`
-	NavHome  string `yaml:"go_home"`
-	Delete   string `yaml:"delete"`
-	Select   string `yaml:"select"`
-	Paste    string `yaml:"paste"`
-	Copy     string `yaml:"copy"`
+	NavUp           string `yaml:"up"`
+	NavDown         string `yaml:"down"`
+	NavLeft         string `yaml:"left"`
+	NavRight        string `yaml:"right"`
+	NavHome         string `yaml:"go_home"`
+	Delete          string `yaml:"delete"`
+	Select          string `yaml:"select"`
+	Cut             string `yaml:"cut"`
+	Copy            string `yaml:"copy"`
+	ToggleAltScreen string `yaml:"toggle_alt_screen"`
 }
 
 // GetConfig reads, pareses and returns the configuration
@@ -39,17 +38,16 @@ func GetConfig() (Config, error) {
 	cfg := Config{
 		Settings: Settings{
 			Keymap: Keymap{
-				NavUp:    "k",
-				NavDown:  "j",
-				NavLeft:  "h",
-				NavRight: "l",
-				NavIn:    ".",
-				NavOut:   ",",
-				NavHome:  "~",
-				Delete:   "d",
-				Select:   " ",
-				Paste:    "p",
-				Copy:     "c",
+				NavUp:           "k",
+				NavDown:         "j",
+				NavLeft:         "h",
+				NavRight:        "l",
+				NavHome:         "~",
+				Delete:          "d",
+				Select:          " ",
+				Cut:             "x",
+				Copy:            "c",
+				ToggleAltScreen: "f",
 			},
 			AltScreen: true,
 		},
