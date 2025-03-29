@@ -51,7 +51,7 @@ func SetupStyles() {
 	}
 
 	styles = make(map[string]lipgloss.Style)
-	for _, s := range strings.Split(colours, ":") {
+	for s := range strings.SplitSeq(colours, ":") {
 		if strings.TrimSpace(s) == "" {
 			continue
 		}
