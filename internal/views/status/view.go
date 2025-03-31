@@ -77,13 +77,15 @@ func (v View) View() string {
 	size := v.viewSize()
 	counts := v.viewCounts()
 
-	return lipgloss.JoinHorizontal(lipgloss.Left,
-		lipgloss.NewStyle().Width(lw).Render(path),
-		lipgloss.NewStyle().Width(rlw).
-			Render(leftSide),
-		lipgloss.NewStyle().Width(rrw).
-			Align(lipgloss.Right).
-			Render(counts+" ("+size+")"),
+	return lipgloss.NewStyle().Border(lipgloss.NormalBorder()).Render(
+		lipgloss.JoinHorizontal(lipgloss.Left,
+			lipgloss.NewStyle().Width(lw).Render(path),
+			lipgloss.NewStyle().Width(rlw).
+				Render(leftSide),
+			lipgloss.NewStyle().Width(rrw).
+				Align(lipgloss.Right).
+				Render(counts+" ("+size+")"),
+		),
 	)
 }
 
@@ -142,7 +144,7 @@ func (v View) viewPath() string {
 }
 
 func (v *View) SetWidth(width int) {
-	v.width = width
+	v.width = width - 2 // - 2 for border
 }
 
 // SetWD sets a new working directory

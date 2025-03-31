@@ -357,7 +357,7 @@ func (v View) writeLastWD() error {
 }
 
 func (v View) getFileHeight() int {
-	return v.termRows - 1
+	return v.termRows - 1 - 2 // - 2 for the status bar
 }
 
 func (v View) getFileWidth() int {
