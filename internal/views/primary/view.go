@@ -27,8 +27,9 @@ import (
 
 var (
 	errShowDuration = time.Second
-	primaryColor    = lipgloss.Color("#6462e3")
+	primaryColor    = lipgloss.Color("#833f8f")
 	pStyle          = lipgloss.NewStyle().Foreground(primaryColor)
+	border          = lipgloss.RoundedBorder()
 )
 
 type dirLoaded struct {
@@ -251,11 +252,7 @@ func (v View) View() string {
 	// we should probably increase size of the child list
 	if v.wd.Path() != "/" {
 		parentList = v.pd.View()
-		firstBorder = firstSnakeLine(
-			v.pd.SelectedColum(),
-			v.wd.SelectedColum(),
-			lipgloss.RoundedBorder(),
-		)
+		firstBorder = firstSnakeLine(v.pd.SelectedColum(), v.wd.SelectedColum())
 	}
 
 	if e, ok := v.wd.CurrEntry(); ok {
@@ -273,7 +270,7 @@ func (v View) View() string {
 		firstBorder,
 		list,
 		secondBorder,
-		lipgloss.NewStyle().BorderForeground(pStyle.GetForeground()).Border(lipgloss.RoundedBorder(), true, true, true, false).
+		lipgloss.NewStyle().BorderForeground(pStyle.GetForeground()).Border(border, true, true, true, false).
 			Height(v.getFileHeight()-2). // - 2 for the top and bottom borders
 			Width(v.getChildFileWidth()).
 			Render(
@@ -372,7 +369,7 @@ func (v View) getChildFileWidth() int {
 	return v.termCols - (v.getParentFileWidth() + v.getFileWidth() + 3)
 }
 
-func firstSnakeLine(leftSel, rightSel int, border lipgloss.Border) string {
+func firstSnakeLine(leftSel, rightSel int) string {
 	var sb strings.Builder
 
 	// If selections are aligned, draw a simple top connector
@@ -417,33 +414,33 @@ func (v View) secondSnakeLine() string {
 	var sb strings.Builder
 
 	if v.wd.SelectedColum() == 0 {
-		sb.WriteString(lipgloss.RoundedBorder().MiddleTop)
+		sb.WriteString(border.MiddleTop)
 	} else {
-		sb.WriteString(lipgloss.RoundedBorder().TopLeft)
+		sb.WriteString(border.TopLeft)
 	}
 	sb.WriteString("\n")
 
 	if v.wd.SelectedColum() == 0 {
-		sb.WriteString(lipgloss.RoundedBorder().Left)
+		sb.WriteString(border.Left)
 		sb.WriteString("\n")
 	}
 
-	sb.WriteString(strings.Repeat(lipgloss.RoundedBorder().Left+"\n", max(0, v.wd.SelectedColum()-1)))
+	sb.WriteString(strings.Repeat(border.Left+"\n", max(0, v.wd.SelectedColum()-1)))
 
 	if v.wd.SelectedColum() == v.getFileHeight()-1 {
-		sb.WriteString(lipgloss.RoundedBorder().MiddleBottom)
+		sb.WriteString(border.MiddleBottom)
 		return pStyle.Render(sb.String())
 	}
 
 	if v.wd.SelectedColum() != 0 {
-		sb.WriteString(lipgloss.RoundedBorder().MiddleRight)
+		sb.WriteString(border.MiddleRight)
 		sb.WriteString("\n")
 	}
 
-	sb.WriteString(strings.Repeat(lipgloss.RoundedBorder().Left+"\n",
+	sb.WriteString(strings.Repeat(border.Left+"\n",
 		max(0, v.getFileHeight()-lipgloss.Height(sb.String()))))
 
-	sb.WriteString(lipgloss.RoundedBorder().BottomLeft)
+	sb.WriteString(border.BottomLeft)
 
 	return pStyle.Render(sb.String())
 }
