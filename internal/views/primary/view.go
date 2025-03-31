@@ -252,7 +252,7 @@ func (v View) View() string {
 	// we should probably increase size of the child list
 	if v.wd.Path() != "/" {
 		parentList = v.pd.View()
-		firstBorder = firstSnakeLine(v.pd.SelectedColum(), v.wd.SelectedColum())
+		firstBorder = firstSnakeLine(v.pd.SelectedRow(), v.wd.SelectedRow())
 	}
 
 	if e, ok := v.wd.CurrEntry(); ok {
@@ -413,26 +413,26 @@ func firstSnakeLine(leftSel, rightSel int) string {
 func (v View) secondSnakeLine() string {
 	var sb strings.Builder
 
-	if v.wd.SelectedColum() == 0 {
+	if v.wd.SelectedRow() == 0 {
 		sb.WriteString(border.MiddleTop)
 	} else {
 		sb.WriteString(border.TopLeft)
 	}
 	sb.WriteString("\n")
 
-	if v.wd.SelectedColum() == 0 {
+	if v.wd.SelectedRow() == 0 {
 		sb.WriteString(border.Left)
 		sb.WriteString("\n")
 	}
 
-	sb.WriteString(strings.Repeat(border.Left+"\n", max(0, v.wd.SelectedColum()-1)))
+	sb.WriteString(strings.Repeat(border.Left+"\n", max(0, v.wd.SelectedRow()-1)))
 
-	if v.wd.SelectedColum() == v.getFileHeight()-1 {
+	if v.wd.SelectedRow() == v.getFileHeight()-1 {
 		sb.WriteString(border.MiddleBottom)
 		return pStyle.Render(sb.String())
 	}
 
-	if v.wd.SelectedColum() != 0 {
+	if v.wd.SelectedRow() != 0 {
 		sb.WriteString(border.MiddleRight)
 		sb.WriteString("\n")
 	}

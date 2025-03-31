@@ -252,6 +252,6 @@ func (v *View) State() State {
 	}
 }
 
-func (v *View) SelectedColum() int {
-	return v.cursorIndex - v.viewportStart
+func (v *View) SelectedRow() int {
+	return max(0, v.cursorIndex-v.viewportStart)
 }
