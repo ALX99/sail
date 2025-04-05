@@ -125,6 +125,8 @@ func (v *View) ChDir(dir filesys.Dir, state State) {
 		v.viewportStart = state.ViewportStart
 	}
 
+	v.cursorIndex = min(v.cursorIndex, len(v.entries))
+
 	log.Debug().
 		Int("entriesCount", len(v.entries)).
 		Int("cursorIndex", v.cursorIndex).
