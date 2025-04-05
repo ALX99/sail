@@ -131,6 +131,8 @@ func (v *View) ChDir(dir filesys.Dir, state State) {
 		Int("entriesCount", len(v.entries)).
 		Int("cursorIndex", v.cursorIndex).
 		Int("viewportStart", v.viewportStart).
+		Int("state.ViewportStart", state.ViewportStart).
+		Str("state.selectedName", state.SelectedName).
 		Str("path", v.path).
 		Msg("ChDir")
 }
