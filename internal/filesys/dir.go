@@ -3,6 +3,9 @@ package filesys
 import (
 	"os"
 	"path/filepath"
+	"time"
+
+	"github.com/rs/zerolog/log"
 )
 
 type Dir struct {
@@ -46,16 +49,24 @@ func NewDir(path string) (Dir, error) {
 }
 
 func (d Dir) RealSize() (int64, error) {
+	now := time.Now()
 	var size int64
 	err := filepath.Walk(d.path, func(_ string, info os.FileInfo, err error) error {
 		if err != nil {
-			return err
+			log.Warn().Err(err).
+				Str("path", d.path).
+				Msg("Error walking directory, ignoring")
+			return nil
 		}
 		if !info.IsDir() {
 			size += info.Size()
 		}
 		return nil
 	})
+	log.Debug().
+		Dur("duration", time.Since(now)).
+		Str("path", d.path).
+		Msgf("Walk finished")
 	return size, err
 }
 
