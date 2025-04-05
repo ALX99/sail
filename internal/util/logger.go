@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"github.com/lmittmann/tint"
 )
@@ -23,8 +24,16 @@ func SetupLogger(buffered bool) (flush func() (string, error)) {
 	flush = func() (string, error) { return fPath, nil }
 
 	if buffered {
-		w = bufio.NewWriter(f)
-		flush = func() (string, error) { return fPath, w.(*bufio.Writer).Flush() }
+		var mu sync.Mutex
+		bufW := bufio.NewWriter(f)
+
+		w = &syncWriter{w: bufW, mu: &mu}
+
+		flush = func() (string, error) {
+			mu.Lock()
+			defer mu.Unlock()
+			return fPath, bufW.Flush()
+		}
 	}
 	handler := tint.NewHandler(w, &tint.Options{
 		AddSource: true,
@@ -50,4 +59,15 @@ func getLogLevel(level string) slog.Level {
 	default:
 		return slog.LevelInfo
 	}
+}
+
+type syncWriter struct {
+	w  io.Writer
+	mu *sync.Mutex
+}
+
+func (sw *syncWriter) Write(p []byte) (n int, err error) {
+	sw.mu.Lock()
+	defer sw.mu.Unlock()
+	return sw.w.Write(p)
 }
