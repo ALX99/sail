@@ -1,13 +1,13 @@
 package filelist
 
 import (
+	"log/slog"
 	"path/filepath"
 	"strings"
 
 	"github.com/alx99/sail/internal/filesys"
 	"github.com/alx99/sail/internal/util"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/rs/zerolog/log"
 )
 
 const cursor = "▶"
@@ -127,14 +127,13 @@ func (v *View) ChDir(dir filesys.Dir, state State) {
 
 	v.cursorIndex = min(v.cursorIndex, len(v.entries))
 
-	log.Debug().
-		Int("entriesCount", len(v.entries)).
-		Int("cursorIndex", v.cursorIndex).
-		Int("viewportStart", v.viewportStart).
-		Int("state.ViewportStart", state.ViewportStart).
-		Str("state.selectedName", state.SelectedName).
-		Str("path", v.path).
-		Msg("ChDir")
+	slog.Debug("ChDir",
+		"entriesCount", len(v.entries),
+		"cursorIndex", v.cursorIndex,
+		"viewportStart", v.viewportStart,
+		"state.ViewportStart", state.ViewportStart,
+		"state.selectedName", state.SelectedName,
+		"path", v.path)
 }
 
 // MoveUp moves the cursor up in the list.
@@ -177,7 +176,7 @@ func (v *View) SetMaxDims(rows, cols int) {
 	if rows <= 0 || cols <= 0 {
 		return
 	}
-	log.Debug().Msgf("Setting max dims to %d x %d", rows, cols)
+	slog.Debug("Setting max dims", "rows", rows, "cols", cols)
 
 	v.maxHeight = rows
 	v.maxWidth = cols

@@ -1,11 +1,10 @@
 package filesys
 
 import (
+	"log/slog"
 	"os"
 	"path/filepath"
 	"time"
-
-	"github.com/rs/zerolog/log"
 )
 
 type Dir struct {
@@ -53,9 +52,9 @@ func (d Dir) RealSize() (int64, error) {
 	var size int64
 	err := filepath.Walk(d.path, func(_ string, info os.FileInfo, err error) error {
 		if err != nil {
-			log.Warn().Err(err).
-				Str("path", d.path).
-				Msg("Error walking directory, ignoring")
+			slog.Warn("Error walking directory, ignoring",
+				"error", err,
+				"path", d.path)
 			return nil
 		}
 		if !info.IsDir() {
@@ -63,10 +62,9 @@ func (d Dir) RealSize() (int64, error) {
 		}
 		return nil
 	})
-	log.Debug().
-		Dur("duration", time.Since(now)).
-		Str("path", d.path).
-		Msgf("Walk finished")
+	slog.Debug("Walk finished",
+		"duration", time.Since(now),
+		"path", d.path)
 	return size, err
 }
 

@@ -2,10 +2,10 @@ package config
 
 import (
 	"cmp"
+	"log/slog"
 	"os"
 	"path/filepath"
 
-	"github.com/rs/zerolog/log"
 	"gopkg.in/yaml.v3"
 )
 
@@ -62,7 +62,7 @@ func GetConfig() (Config, error) {
 	f, err := os.ReadFile(cfgFile)
 	if err != nil {
 		if os.IsNotExist(err) {
-			log.Warn().Str("path", cfgFile).Msg("No configuration file found, using defaults")
+			slog.Warn("No configuration file found, using defaults", "path", cfgFile)
 			return cfg, nil
 		}
 		return Config{}, err

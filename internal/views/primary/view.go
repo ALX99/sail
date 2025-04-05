@@ -11,6 +11,7 @@ package primary
 import (
 	"cmp"
 	"errors"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -22,7 +23,6 @@ import (
 	"github.com/alx99/sail/internal/views/status"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/rs/zerolog/log"
 )
 
 var (
@@ -95,7 +95,7 @@ func (v View) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if v.cfg.PrintLastWD != "" {
 				err := v.writeLastWD()
 				if err != nil {
-					log.Error().Err(err).Send()
+					slog.Error("Failed to write last working directory", "error", err)
 				}
 			}
 			return v, tea.Quit
@@ -235,7 +235,7 @@ func (v View) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return v, nil
 	case error:
 		cmds = append(cmds, v.status.SetError(msg))
-		log.Error().Err(msg).Msg("Error occurred")
+		slog.Error("Error occurred", "error", msg)
 		return v, tea.Batch(cmds...)
 	}
 

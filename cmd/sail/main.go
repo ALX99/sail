@@ -3,13 +3,13 @@ package main
 import (
 	"flag"
 	"fmt"
+	"log/slog"
 	"os"
 
 	"github.com/alx99/sail/internal/config"
 	"github.com/alx99/sail/internal/util"
 	"github.com/alx99/sail/internal/views/primary"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/rs/zerolog/log"
 )
 
 var (
@@ -39,7 +39,7 @@ func main() {
 			fmt.Fprintf(os.Stderr, "Failed flushing logs to %q: %v\n", logPath, err)
 		}
 	}()
-	log.Info().Msg("Sail started")
+	slog.Info("Sail started")
 
 	cfg, err := config.GetConfig()
 	if err != nil {

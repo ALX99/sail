@@ -3,13 +3,12 @@ package filesys
 import (
 	"io"
 	"iter"
+	"log/slog"
 	"maps"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
-
-	"github.com/rs/zerolog/log"
 )
 
 type FS struct {
@@ -27,14 +26,14 @@ func NewFS() *FS {
 // Select a file
 func (fs *FS) Select(path string) {
 	fs.Lock()
-	log.Debug().Msgf("Selected %s", path)
+	slog.Debug("Selected file", "path", path)
 	fs.selectedFiles[path] = struct{}{}
 	fs.Unlock()
 }
 
 func (fs *FS) Deselect(path string) {
 	fs.Lock()
-	log.Debug().Msgf("Deselected %s", path)
+	slog.Debug("Deselected file", "path", path)
 	delete(fs.selectedFiles, path)
 	fs.Unlock()
 }
@@ -60,7 +59,7 @@ func (fs *FS) DeleteSelections() error {
 		if err := os.RemoveAll(path); err != nil {
 			return err
 		}
-		log.Info().Str("path", path).Msg("Deleted")
+		slog.Info("Deleted", "path", path)
 		delete(fs.selectedFiles, path)
 	}
 
@@ -97,7 +96,7 @@ func (fs *FS) CopySelections(dst string) error {
 
 // CopyAll copies all files in the given path to the new directory
 func CopyAll(src, dst string) (err error) {
-	log.Info().Str("src", src).Str("dst", dst).Msg("copy")
+	slog.Info("Copy", "src", src, "dst", dst)
 
 	stat, err := os.Stat(src)
 	if err != nil {
@@ -126,7 +125,7 @@ func CopyAll(src, dst string) (err error) {
 	defer func() {
 		if err != nil { // if there was an error, attempt to clean up
 			if err2 := os.RemoveAll(dst); err2 != nil {
-				log.Error().Err(err2).Str("path", dst).Msg("failed to remove directory")
+				slog.Error("Failed to remove directory", "error", err2, "path", dst)
 			}
 		}
 	}()
@@ -160,7 +159,7 @@ func copyFile(oldPath, newPath string) (err error) {
 	defer func() {
 		if err != nil { // if there was an error, attempt to clean up
 			if err2 := os.Remove(newPath); err2 != nil {
-				log.Error().Err(err2).Str("path", newPath).Msg("failed to remove file")
+				slog.Error("Failed to remove file", "error", err2, "path", newPath)
 			}
 		}
 	}()
