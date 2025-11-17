@@ -39,13 +39,13 @@ type View struct {
 	dirSize int64
 }
 
-func New() View {
-	return View{
+func New() *View {
+	return &View{
 		sb: strings.Builder{},
 	}
 }
 
-func (v View) Init() tea.Cmd {
+func (v *View) Init() tea.Cmd {
 	return v.calcDirSize
 }
 
@@ -62,7 +62,7 @@ func splitHalf(width int) (int, int) {
 	return width / 2, width - width/2
 }
 
-func (v View) View() string {
+func (v *View) View() string {
 	lw, rw := splitHalf(v.width)
 	rlw, rrw := splitHalf(rw)
 
@@ -89,7 +89,7 @@ func (v View) View() string {
 	)
 }
 
-func (v View) viewSize() string {
+func (v *View) viewSize() string {
 	// check GB
 	if gb := float64(v.dirSize) / math.Pow(1024, 3); gb > 1 {
 		return fmt.Sprintf("%06.2f GB", gb)
@@ -108,12 +108,12 @@ func (v View) viewSize() string {
 	return fmt.Sprintf("%06.2f  B", float64(v.dirSize))
 }
 
-func (v View) viewCounts() string {
+func (v *View) viewCounts() string {
 	f, d := v.wd.Counts()
 	return fmt.Sprintf("files: %2d dirs: %2d", f, d)
 }
 
-func (v View) viewPath() string {
+func (v *View) viewPath() string {
 	v.sb.Reset()
 
 	// If there is no previous CWD, just return the current CWD
@@ -176,7 +176,7 @@ func (v *View) SetError(err error) tea.Cmd {
 	}
 }
 
-func (v View) calcDirSize() tea.Msg {
+func (v *View) calcDirSize() tea.Msg {
 	size, err := v.wd.RealSize()
 	if err != nil {
 		return nil

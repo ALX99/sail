@@ -7,8 +7,8 @@ import (
 	"os"
 
 	"github.com/alx99/sail/internal/config"
+	"github.com/alx99/sail/internal/ui/app"
 	"github.com/alx99/sail/internal/util"
-	"github.com/alx99/sail/internal/views/primary"
 	tea "github.com/charmbracelet/bubbletea"
 )
 
@@ -61,7 +61,7 @@ func main() {
 		opts = append(opts, tea.WithAltScreen())
 	}
 
-	_, err = tea.NewProgram(primary.New(cwd, cfg), opts...).Run()
+	_, err = tea.NewProgram(app.New(cwd, cfg), opts...).Run()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		os.Exit(1)

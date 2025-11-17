@@ -2,99 +2,96 @@ package filesys
 
 import (
 	"io"
-	"iter"
 	"log/slog"
-	"maps"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
-	"sync"
 )
 
-type FS struct {
-	selectedFiles map[string]struct{}
-	*sync.RWMutex
+// Selection tracks selected file paths for operations and implements the
+// filelist.SelChecker interface.
+type Selection struct {
+	files map[string]struct{}
 }
 
-func NewFS() *FS {
-	return &FS{
-		selectedFiles: make(map[string]struct{}),
-		RWMutex:       &sync.RWMutex{},
+func NewSelection() *Selection {
+	return &Selection{
+		files: make(map[string]struct{}),
 	}
 }
 
-// Select a file
-func (fs *FS) Select(path string) {
-	fs.Lock()
-	slog.Debug("Selected file", "path", path)
-	fs.selectedFiles[path] = struct{}{}
-	fs.Unlock()
+func (s *Selection) Select(path string) {
+	if s.files == nil {
+		s.files = make(map[string]struct{})
+	}
+	s.files[path] = struct{}{}
 }
 
-func (fs *FS) Deselect(path string) {
-	fs.Lock()
-	slog.Debug("Deselected file", "path", path)
-	delete(fs.selectedFiles, path)
-	fs.Unlock()
+func (s *Selection) Deselect(path string) {
+	delete(s.files, path)
 }
 
-func (fs *FS) IsSelected(path string) bool {
-	fs.RLock()
-	_, ok := fs.selectedFiles[path]
-	fs.RUnlock()
+func (s *Selection) Toggle(path string) bool {
+	if s.IsSelected(path) {
+		s.Deselect(path)
+		return false
+	}
+	s.Select(path)
+	return true
+}
+
+func (s *Selection) Clear() {
+	clear(s.files)
+}
+
+func (s *Selection) IsSelected(path string) bool {
+	_, ok := s.files[path]
 	return ok
 }
 
-func (fs *FS) Selections() iter.Seq[string] {
-	fs.RLock()
-	defer fs.RUnlock()
-	return maps.Keys(fs.selectedFiles)
+func (s *Selection) Paths() []string {
+	if len(s.files) == 0 {
+		return nil
+	}
+	out := make([]string, 0, len(s.files))
+	for path := range s.files {
+		out = append(out, path)
+	}
+	sort.Strings(out)
+	return out
 }
 
-func (fs *FS) DeleteSelections() error {
-	fs.Lock()
-	defer fs.Unlock()
-
-	for path := range fs.selectedFiles {
+func DeletePaths(paths []string) error {
+	for _, path := range unique(paths) {
 		if err := os.RemoveAll(path); err != nil {
 			return err
 		}
 		slog.Info("Deleted", "path", path)
-		delete(fs.selectedFiles, path)
 	}
-
 	return nil
 }
 
-func (fs *FS) MoveSelections(dst string) error {
-	fs.Lock()
-	defer fs.Unlock()
-
-	for path := range fs.selectedFiles {
+func MovePaths(paths []string, dst string) error {
+	for _, path := range unique(paths) {
 		if err := os.Rename(path, filepath.Join(dst, filepath.Base(path))); err != nil {
 			return err
 		}
-		delete(fs.selectedFiles, path)
+		slog.Info("Moved", "path", path, "dst", dst)
 	}
-
 	return nil
 }
 
-func (fs *FS) CopySelections(dst string) error {
-	fs.Lock()
-	defer fs.Unlock()
-
-	for path := range fs.selectedFiles {
+func CopyPaths(paths []string, dst string) error {
+	for _, path := range unique(paths) {
 		if err := CopyAll(path, dst); err != nil {
 			return err
 		}
-		delete(fs.selectedFiles, path)
 	}
-
 	return nil
 }
 
-// CopyAll copies all files in the given path to the new directory
+// CopyAll copies all files in the given path to the new directory.
 func CopyAll(src, dst string) (err error) {
 	slog.Info("Copy", "src", src, "dst", dst)
 
@@ -166,4 +163,20 @@ func copyFile(oldPath, newPath string) (err error) {
 
 	_, err = io.Copy(dst, src)
 	return err
+}
+
+func unique(paths []string) []string {
+	if len(paths) < 2 {
+		return paths
+	}
+	seen := make(map[string]struct{}, len(paths))
+	out := make([]string, 0, len(paths))
+	for _, path := range paths {
+		if _, ok := seen[path]; ok {
+			continue
+		}
+		seen[path] = struct{}{}
+		out = append(out, path)
+	}
+	return out
 }

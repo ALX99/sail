@@ -12,7 +12,7 @@ import (
 
 const cursor = "▶"
 
-type selChecker interface {
+type SelChecker interface {
 	IsSelected(path string) bool
 }
 
@@ -21,7 +21,7 @@ type View struct {
 	path    string
 	entries []filesys.DirEntry
 
-	selChecker     selChecker
+	selChecker     SelChecker
 	sb             strings.Builder
 	highlightStyle lipgloss.Style
 	applyHighlight bool
@@ -40,11 +40,11 @@ type State struct {
 // New creates a new FileList.
 func New(cwd string,
 	state State,
-	selChecker selChecker,
+	selChecker SelChecker,
 	applyHighlight bool,
 	primaryColor lipgloss.Color,
-) View {
-	f := View{
+) *View {
+	f := &View{
 		path:           cwd,
 		cursorIndex:    0,
 		viewPortBuffer: 2,
@@ -62,7 +62,7 @@ func New(cwd string,
 }
 
 // View renders the FileList.
-func (v View) View() string {
+func (v *View) View() string {
 	v.sb.Reset()
 	viewportEnd := min(v.viewportStart+v.maxHeight, len(v.entries))
 
