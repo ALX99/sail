@@ -42,11 +42,9 @@ type Model struct {
 	childReqID int
 }
 
-func New(cwd string, cfg config.Config, selection *filesys.Selection) *Model {
+func New(cwd string, cfg config.Config) *Model {
 	parentDir := filepath.Dir(cwd)
-	if selection == nil {
-		selection = filesys.NewSelection()
-	}
+	selection := filesys.NewSelection()
 	v := &Model{
 		wd:        newPane(cwd, filelist.State{}, selection, true, primaryColor),
 		pd:        newPane(parentDir, filelist.State{}, selection, true, primaryColor),
@@ -106,19 +104,25 @@ func (v *Model) Update(msg tea.Msg) (*Model, tea.Cmd) {
 			return v, v.loadDir(home)
 
 		case v.cfg.Settings.Keymap.Delete:
-			return v, v.runFSOp(func(paths []string) error {
-				return filesys.DeletePaths(paths)
-			})
+			paths := v.selection.Paths()
+			if len(paths) == 0 {
+				return v, nil
+			}
+			return v, filesys.DeleteCmd(paths)
 
 		case v.cfg.Settings.Keymap.Cut:
-			return v, v.runFSOp(func(paths []string) error {
-				return filesys.MovePaths(paths, v.cwd)
-			})
+			paths := v.selection.Paths()
+			if len(paths) == 0 {
+				return v, nil
+			}
+			return v, filesys.MoveCmd(paths, v.cwd)
 
 		case v.cfg.Settings.Keymap.Copy:
-			return v, v.runFSOp(func(paths []string) error {
-				return filesys.CopyPaths(paths, v.cwd)
-			})
+			paths := v.selection.Paths()
+			if len(paths) == 0 {
+				return v, nil
+			}
+			return v, filesys.CopyCmd(paths, v.cwd)
 
 		case v.cfg.Settings.Keymap.Select:
 			e, ok := v.wd.CurrEntry()
@@ -144,6 +148,10 @@ func (v *Model) Update(msg tea.Msg) (*Model, tea.Cmd) {
 		v.cd.SetBounds(v.getFileHeight()-2, v.getChildFileWidth(parentVisible)) // - 2 for the top and bottom borders
 
 		return v, nil
+
+	case filesys.FilesDeletedMsg, filesys.FilesMovedMsg, filesys.FilesCopiedMsg:
+		v.selection.Clear()
+		return v, v.loadDir(v.cwd)
 
 	case filesys.DirLoadedMsg:
 		if msg.ReqID != v.wdReqID {
@@ -251,24 +259,6 @@ func (v *Model) loadChildDir() tea.Cmd {
 	v.childEnabled = true
 	v.childReqID++
 	return filesys.LoadChildCmd(v.childReqID, resolved.Path())
-}
-
-func (v *Model) runFSOp(op func([]string) error) tea.Cmd {
-	paths := v.selection.Paths()
-	if len(paths) == 0 {
-		return nil
-	}
-
-	return tea.Sequence(
-		func() tea.Msg {
-			if err := op(paths); err != nil {
-				return err
-			}
-			v.selection.Clear()
-			return nil
-		},
-		v.loadDir(v.cwd),
-	)
 }
 
 func errorCmd(err error) tea.Cmd {

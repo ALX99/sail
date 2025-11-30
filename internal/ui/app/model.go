@@ -14,7 +14,6 @@ import (
 
 type Model struct {
 	cfg       config.Config
-	selection *filesys.Selection
 	browser   *browser.Model
 	status    *status.View
 	altScreen bool
@@ -22,11 +21,9 @@ type Model struct {
 }
 
 func New(cwd string, cfg config.Config) *Model {
-	selection := filesys.NewSelection()
 	return &Model{
 		cfg:       cfg,
-		selection: selection,
-		browser:   browser.New(cwd, cfg, selection),
+		browser:   browser.New(cwd, cfg),
 		status:    status.New(),
 		altScreen: cfg.Settings.AltScreen,
 		printLast: cfg.PrintLastWD,
@@ -39,21 +36,10 @@ func (m *Model) Init() tea.Cmd {
 
 func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmds []tea.Cmd
-	m.status.Update(msg)
+	var cmd tea.Cmd
 
-	forwardToBrowser := func(message tea.Msg) {
-		if message == nil {
-			return
-		}
-		var cmd tea.Cmd
-		m.browser, cmd = m.browser.Update(message)
-		if cmd != nil {
-			cmds = append(cmds, cmd)
-		}
-	}
-
-	switch msg := msg.(type) {
-	case tea.KeyMsg:
+	// Handle global keys
+	if msg, ok := msg.(tea.KeyMsg); ok {
 		switch msg.String() {
 		case "ctrl+c", "q":
 			if m.printLast != "" {
@@ -68,13 +54,13 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, tea.EnterAltScreen
 			}
 			return m, tea.ExitAltScreen
-		default:
-			forwardToBrowser(msg)
 		}
-	default:
-		forwardToBrowser(msg)
 	}
 
+	// Update Status internal state
+	m.status.Update(msg)
+
+	// Handle specific messages for status bar coordination
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.status.SetWidth(msg.Width)
@@ -84,6 +70,10 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		slog.Error("Error occurred", "error", msg)
 		cmds = append(cmds, m.status.SetError(msg))
 	}
+
+	// Forward to browser
+	m.browser, cmd = m.browser.Update(msg)
+	cmds = append(cmds, cmd)
 
 	return m, tea.Batch(cmds...)
 }

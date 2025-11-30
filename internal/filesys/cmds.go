@@ -53,3 +53,34 @@ func LoadChildCmd(reqID int, childPath string) tea.Cmd {
 		}
 	}
 }
+
+type FilesDeletedMsg struct{ Paths []string }
+type FilesMovedMsg struct{ Paths []string }
+type FilesCopiedMsg struct{ Paths []string }
+
+func DeleteCmd(paths []string) tea.Cmd {
+	return func() tea.Msg {
+		if err := DeletePaths(paths); err != nil {
+			return err
+		}
+		return FilesDeletedMsg{Paths: paths}
+	}
+}
+
+func MoveCmd(paths []string, dst string) tea.Cmd {
+	return func() tea.Msg {
+		if err := MovePaths(paths, dst); err != nil {
+			return err
+		}
+		return FilesMovedMsg{Paths: paths}
+	}
+}
+
+func CopyCmd(paths []string, dst string) tea.Cmd {
+	return func() tea.Msg {
+		if err := CopyPaths(paths, dst); err != nil {
+			return err
+		}
+		return FilesCopiedMsg{Paths: paths}
+	}
+}
