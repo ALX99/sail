@@ -3,7 +3,6 @@ package browser
 import (
 	"github.com/alx99/sail/internal/filesys"
 	"github.com/alx99/sail/internal/ui/components/filelist"
-	"github.com/charmbracelet/lipgloss"
 )
 
 type pane struct {
@@ -11,9 +10,9 @@ type pane struct {
 	cache map[string]filelist.State
 }
 
-func newPane(path string, state filelist.State, checker filelist.SelChecker, highlight bool, primaryColor lipgloss.Color) *pane {
+func newPane(path string, state filelist.State, checker filelist.SelChecker, highlight bool) *pane {
 	return &pane{
-		view:  filelist.New(path, state, checker, highlight, primaryColor),
+		view:  filelist.New(path, state, checker, highlight),
 		cache: make(map[string]filelist.State, 32),
 	}
 }

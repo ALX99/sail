@@ -16,14 +16,9 @@ import (
 	"github.com/alx99/sail/internal/config"
 	"github.com/alx99/sail/internal/filesys"
 	"github.com/alx99/sail/internal/ui/components/filelist"
+	"github.com/alx99/sail/internal/ui/theme"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-)
-
-var (
-	primaryColor = lipgloss.Color("#833f8f")
-	pStyle       = lipgloss.NewStyle().Foreground(primaryColor)
-	border       = lipgloss.RoundedBorder()
 )
 
 type Model struct {
@@ -46,9 +41,9 @@ func New(cwd string, cfg config.Config) *Model {
 	parentDir := filepath.Dir(cwd)
 	selection := filesys.NewSelection()
 	v := &Model{
-		wd:        newPane(cwd, filelist.State{}, selection, true, primaryColor),
-		pd:        newPane(parentDir, filelist.State{}, selection, true, primaryColor),
-		cd:        newPane(cwd, filelist.State{}, selection, false, primaryColor),
+		wd:        newPane(cwd, filelist.State{}, selection, true),
+		pd:        newPane(parentDir, filelist.State{}, selection, false),
+		cd:        newPane(cwd, filelist.State{}, selection, false),
 		cwd:       cwd,
 		cfg:       cfg,
 		selection: selection,
@@ -142,10 +137,19 @@ func (v *Model) Update(msg tea.Msg) (*Model, tea.Cmd) {
 		v.termCols = msg.Width
 		v.termRows = msg.Height
 
-		parentVisible := v.wd.Path() != "/"
-		v.pd.SetBounds(v.getFileHeight(), v.getParentFileWidth())
-		v.wd.SetBounds(v.getFileHeight(), v.getFileWidth())
-		v.cd.SetBounds(v.getFileHeight()-2, v.getChildFileWidth(parentVisible)) // - 2 for the top and bottom borders
+		parentW, currentW, childW := v.calculatePaneWidths(v.termCols)
+
+		// paneHeight is the full height available for the panes (excluding status bar)
+		paneHeight := v.getFileHeight()
+
+		// We set the bounds for the *content* inside the panes.
+		// Since we use a standard border (takes 2 chars width/height),
+		// we subtract 2 from the available width/height.
+		// We also use parentW, currentW, childW as the full width of the pane block.
+
+		v.pd.SetBounds(max(0, paneHeight), max(0, parentW))
+		v.wd.SetBounds(max(0, paneHeight), max(0, currentW))
+		v.cd.SetBounds(max(0, paneHeight), max(0, childW))
 
 		return v, nil
 
@@ -193,37 +197,70 @@ func (v *Model) Update(msg tea.Msg) (*Model, tea.Cmd) {
 }
 
 func (v *Model) View() string {
-	parentVisible := v.wd.Path() != "/"
-	parentList, parentConnector := "", ""
-	if parentVisible {
-		parentList = v.pd.View()
-		parentConnector = renderParentConnector(v.getFileHeight(), v.pd.SelectedRow(), v.wd.SelectedRow())
-	}
+	parentW, currentW, childW := v.calculatePaneWidths(v.termCols)
+	paneHeight := v.getFileHeight()
 
-	childPane := ""
+	// Parent Pane
+	// Width/Height on the style sets the dimensions of the *block* (including borders)
+
+	// IMPORTANT: Lipgloss Width/Height on a border style sets the CONTENT width/height if standard border is used?
+	// "The Width and Height methods set the width and height of the block. This includes padding and borders."
+	// If this is true, then Width(parentW) is correct.
+	// And SetBounds(parentW-2) is correct.
+	// Let's try Width(parentW).
+
+	// Override styles to enforce size
+	pStyle := theme.DefaultTheme.InactiveBorder.Width(parentW).Height(paneHeight)
+	cStyle := theme.DefaultTheme.ActiveBorder.Width(currentW).Height(paneHeight)
+	dStyle := theme.DefaultTheme.InactiveBorder.Width(childW).Height(paneHeight)
+
+	parentView := pStyle.Render(v.pd.View())
+	currentView := cStyle.Render(v.wd.View())
+
+	var childView string
 	if v.childEnabled {
-		childPane = lipgloss.NewStyle().
-			BorderForeground(pStyle.GetForeground()).
-			Border(border, true, true, true, false).
-			Height(v.getFileHeight() - 2).
-			Width(v.getChildFileWidth(parentVisible)).
-			Render(v.cd.View())
+		childView = dStyle.Render(v.cd.View())
+	} else {
+		childView = dStyle.Render("")
 	}
 
-	secondBorder := ""
-	if v.childEnabled {
-		secondBorder = renderChildConnector(v.getFileHeight(), v.wd.SelectedRow())
+	return lipgloss.JoinHorizontal(lipgloss.Top, parentView, currentView, childView)
+}
+
+func (v *Model) calculatePaneWidths(totalWidth int) (int, int, int) {
+	// Reduce total width by 8 to account for borders (3 panes * 2 borders = 6)
+	// plus a safety margin of 2 to avoid edge wrapping.
+	totalWidth = max(0, totalWidth-8)
+
+	// Ratio 1:2:3
+	// Parent gets ~16%
+	parentW := totalWidth / 6
+
+	// Current gets ~33%
+	currentW := (totalWidth / 6) * 2
+
+	// Child gets remainder (~50%) to ensure full width usage
+	childW := totalWidth - parentW - currentW
+
+	// Minimum width checks (optional, to prevent crash or visual glitches)
+	if parentW < 5 {
+		parentW = 5
+	}
+	if currentW < 10 {
+		currentW = 10
+	}
+	if childW < 10 {
+		childW = 10
 	}
 
-	view := []string{
-		parentList,
-		parentConnector,
-		v.wd.View(),
-		secondBorder,
-		childPane,
+	// Re-adjust child if we forced minimums to avoid overflow (simplified)
+	if parentW+currentW+childW > totalWidth {
+		// If overflow, prioritize Current > Parent > Child
+		// This is a basic responsive strategy
+		childW = max(0, totalWidth-parentW-currentW)
 	}
 
-	return lipgloss.JoinHorizontal(lipgloss.Left, view...)
+	return parentW, currentW, childW
 }
 
 func (v *Model) CWD() string {
@@ -271,21 +308,12 @@ func errorCmd(err error) tea.Cmd {
 }
 
 func (v *Model) getFileHeight() int {
-	return v.termRows - 1 - 2 // - 2 for the status bar
-}
-
-func (v *Model) getFileWidth() int {
-	return (v.termCols / 6) * 2
-}
-
-func (v *Model) getParentFileWidth() int {
-	return v.termCols / 6
-}
-
-func (v *Model) getChildFileWidth(parentVisible bool) int {
-	base := v.termCols - (v.getFileWidth() + 3)
-	if parentVisible {
-		return base - v.getParentFileWidth()
+	// Return termRows - 3.
+	// Width wrapping is fixed by subtracting borders in calculatePaneWidths.
+	// We subtract 3 here: 1 for status bar, 2 for borders.
+	h := v.termRows - 3
+	if h < 3 {
+		return 3
 	}
-	return base
+	return h
 }

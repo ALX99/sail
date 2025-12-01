@@ -7,16 +7,12 @@ import (
 	"time"
 
 	"github.com/alx99/sail/internal/filesys"
+	"github.com/alx99/sail/internal/ui/theme"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
 
-var (
-	pathAnimDur = 250 * time.Millisecond
-	errDur      = 1 * time.Second
-	red         = lipgloss.NewStyle().Foreground(lipgloss.Color("#ff0000"))
-	green       = lipgloss.NewStyle().Foreground(lipgloss.Color("#00ff00"))
-)
+var errDur = 1 * time.Second
 
 type (
 	dirSize struct {
@@ -58,34 +54,34 @@ func (v *View) Update(msg tea.Msg) {
 	}
 }
 
-func splitHalf(width int) (int, int) {
-	return width / 2, width - width/2
-}
-
 func (v *View) View() string {
-	lw, rw := splitHalf(v.width)
-	rlw, rrw := splitHalf(rw)
+	// Mode Segment
+	mode := theme.DefaultTheme.StatusMode.Render(" NORMAL ")
 
-	fileInfo := "test x d r d"
-	leftSide := fileInfo
-
+	// Path Segment
+	pathStr := v.wd.Path()
 	if v.error != nil && time.Now().Before(v.errorAt.Add(errDur)) {
-		leftSide = red.Render(v.error.Error())
+		pathStr = v.error.Error() // Show error in path area temporarily
 	}
+	path := theme.DefaultTheme.StatusPath.Render(" " + pathStr + " ")
 
-	path := v.viewPath()
+	// Info Segment
 	size := v.viewSize()
 	counts := v.viewCounts()
+	infoStr := fmt.Sprintf(" %s | %s ", counts, size)
+	info := theme.DefaultTheme.StatusInfo.Render(infoStr)
 
-	return lipgloss.NewStyle().Border(lipgloss.NormalBorder()).Render(
-		lipgloss.JoinHorizontal(lipgloss.Left,
-			lipgloss.NewStyle().Width(lw).Render(path),
-			lipgloss.NewStyle().Width(rlw).
-				Render(leftSide),
-			lipgloss.NewStyle().Width(rrw).
-				Align(lipgloss.Right).
-				Render(counts+" ("+size+")"),
-		),
+	// Spacer to push info to the right
+	// Calculate used width
+	usedWidth := lipgloss.Width(mode) + lipgloss.Width(path) + lipgloss.Width(info)
+	spacerWidth := max(0, v.width-usedWidth)
+	spacer := theme.DefaultTheme.StatusBar.Width(spacerWidth).Render("")
+
+	return lipgloss.JoinHorizontal(lipgloss.Top,
+		mode,
+		path,
+		spacer,
+		info,
 	)
 }
 
@@ -110,41 +106,11 @@ func (v *View) viewSize() string {
 
 func (v *View) viewCounts() string {
 	f, d := v.wd.Counts()
-	return fmt.Sprintf("files: %2d dirs: %2d", f, d)
-}
-
-func (v *View) viewPath() string {
-	v.sb.Reset()
-
-	// If there is no previous CWD, just return the current CWD
-	if v.prevWD == "" || time.Now().After(v.navAt.Add(pathAnimDur)) {
-		v.sb.WriteString(v.wd.Path())
-		if v.wd.Path() == "/" {
-			return v.sb.String()
-		}
-		v.sb.WriteString("/")
-		return v.sb.String()
-	}
-
-	if v.wd.Path() == v.prevWD {
-		v.sb.WriteString(v.wd.Path())
-		v.sb.WriteString("/")
-		return v.sb.String()
-	}
-
-	common := longestCommonPath(v.wd.Path(), v.prevWD) + "/"
-
-	if len(v.wd.Path()) < len(v.prevWD) {
-		v.sb.WriteString(common + red.Render(strings.TrimPrefix(v.prevWD+"/", common)))
-	} else {
-		v.sb.WriteString(common + green.Render(strings.TrimPrefix(v.wd.Path()+"/", common)))
-	}
-
-	return v.sb.String()
+	return fmt.Sprintf("%d/%d", f, d)
 }
 
 func (v *View) SetWidth(width int) {
-	v.width = width - 2 // - 2 for border
+	v.width = max(0, width-1)
 }
 
 // SetWD sets a new working directory
@@ -158,13 +124,7 @@ func (v *View) SetWD(dir filesys.Dir) tea.Cmd {
 	v.navAt = time.Now()
 	v.dirSize = 0
 
-	return tea.Batch(
-		func() tea.Msg {
-			time.Sleep(pathAnimDur)
-			return struct{}{} // dummy message to trigger update
-		},
-		v.calcDirSize,
-	)
+	return v.calcDirSize
 }
 
 func (v *View) SetError(err error) tea.Cmd {
@@ -182,20 +142,4 @@ func (v *View) calcDirSize() tea.Msg {
 		return nil
 	}
 	return dirSize{size: size, path: v.wd.Path()}
-}
-
-func longestCommonPath(s1, s2 string) string {
-	split1 := strings.Split(s1, "/")
-	split2 := strings.Split(s2, "/")
-	minLen := min(len(split2), len(split1))
-	common := make([]string, 0, minLen)
-
-	for i := range minLen {
-		if split1[i] != split2[i] {
-			break
-		}
-		common = append(common, split1[i])
-	}
-
-	return strings.Join(common, "/")
 }

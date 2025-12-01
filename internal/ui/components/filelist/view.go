@@ -1,11 +1,13 @@
 package filelist
 
 import (
+	"fmt"
 	"log/slog"
 	"path/filepath"
 	"strings"
 
 	"github.com/alx99/sail/internal/filesys"
+	"github.com/alx99/sail/internal/ui/theme"
 	"github.com/alx99/sail/internal/util"
 	"github.com/charmbracelet/lipgloss"
 )
@@ -42,7 +44,6 @@ func New(cwd string,
 	state State,
 	selChecker SelChecker,
 	applyHighlight bool,
-	primaryColor lipgloss.Color,
 ) *View {
 	f := &View{
 		path:           cwd,
@@ -50,7 +51,6 @@ func New(cwd string,
 		viewPortBuffer: 2,
 		selChecker:     selChecker,
 		applyHighlight: applyHighlight,
-		highlightStyle: lipgloss.NewStyle().Foreground(primaryColor),
 	}
 
 	f.SelectFileByName(state.SelectedName)
@@ -68,49 +68,87 @@ func (v *View) View() string {
 
 	for i := v.viewportStart; i < viewportEnd; i++ {
 		file := v.entries[i]
-		s := util.GetStyle(file)
-
 		currentFile := i == v.cursorIndex
 		selected := v.selChecker.IsSelected(filepath.Join(v.path, file.Name()))
 
-		if selected {
-			s = s.Underline(true).
-				Bold(true).
-				Foreground(v.highlightStyle.GetForeground())
-		}
-
-		usedCols := lipgloss.Width(file.Name())
-
+		// Base style
+		style := lipgloss.NewStyle()
+		
+		// Icon
+		icon := util.GetIcon(file.Name(), file.IsDir())
+		iconWidth := lipgloss.Width(icon)
+		
+		// Prepare Name with Truncation
 		name := file.Name()
-		if usedCols > v.maxWidth {
-			name = file.Name()[:max(0, v.maxWidth-1)] + v.highlightStyle.Render("~")
+		// Available width for name: maxWidth - icon - space
+		availableWidth := max(0, v.maxWidth - iconWidth - 1)
+		
+		if lipgloss.Width(name) > availableWidth {
+			// Truncate
+			// Use runic truncation if possible, but simple string slicing for now
+			// Safety check for short available width
+			if availableWidth > 1 {
+				runes := []rune(name)
+				if len(runes) > availableWidth {
+					name = string(runes[:availableWidth-1]) + "…"
+				}
+			} else {
+				name = "" // Too small to show name
+			}
+		}
+		
+		displayName := fmt.Sprintf("%s %s", icon, name)
+
+		// Selection (yellow text)
+		if selected {
+			style = theme.DefaultTheme.SelectedFile
+		} else {
+			if file.IsDir() {
+				style = style.Foreground(theme.Blue)
+			} else {
+				style = style.Foreground(theme.Text)
+			}
 		}
 
+		// Cursor (highlighted row)
 		if currentFile && v.applyHighlight {
-			v.sb.WriteString(s.Render(name))
-			v.sb.WriteString(strings.Repeat(v.highlightStyle.Render(lipgloss.RoundedBorder().Top), max(0, v.maxWidth-usedCols)))
-		} else {
-			v.sb.WriteString(s.Render(name))
+			// Override background for the cursor line
+			style = style.
+				Background(theme.Surface2).
+				Foreground(theme.Text).
+				Bold(true)
+			
+			// If it was selected, maybe make it distinctive?
+			if selected {
+				style = style.Foreground(theme.Yellow)
+			}
 		}
+
+		// Render
+		renderedName := style.Render(displayName)
+		
+		// Fill remaining width if it's the cursor line to create a bar effect
+		// Note: We pad to v.maxWidth. Since we ensured content <= v.maxWidth,
+		// this padding will fill the rest of the line.
+		if currentFile && v.applyHighlight {
+			// Calculate width
+			width := lipgloss.Width(renderedName)
+			if width < v.maxWidth {
+				padding := strings.Repeat(" ", v.maxWidth-width)
+				renderedName += style.Render(padding)
+			}
+		}
+
+		v.sb.WriteString(renderedName)
 
 		if i != viewportEnd-1 {
 			v.sb.WriteString("\n")
 		}
 	}
 
-	if viewportEnd == 0 {
-		msg := v.highlightStyle.Bold(true).Render("No files found")
-
-		if v.applyHighlight {
-			usedCols := lipgloss.Width(msg)
-			v.sb.WriteString(msg)
-			v.sb.WriteString(strings.Repeat(v.highlightStyle.Render(lipgloss.RoundedBorder().Top), max(0, v.maxWidth-usedCols)))
-		} else {
-			v.sb.WriteString(v.highlightStyle.Width(v.maxWidth).
-				Height(v.maxHeight).
-				Align(lipgloss.Center, lipgloss.Center).
-				Render(msg))
-		}
+	if len(v.entries) == 0 {
+		msg := theme.DefaultTheme.StatusInfo.Render("No files")
+		v.sb.WriteString(lipgloss.NewStyle().Width(v.maxWidth).Align(lipgloss.Center).Render(msg))
 	}
 
 	return v.sb.String()
