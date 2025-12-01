@@ -20,13 +20,15 @@ type SelChecker interface {
 
 // View represents the state and view logic for a list of files.
 type View struct {
-	path    string
-	entries []filesys.DirEntry
+	path       string
+	entries    []filesys.DirEntry
+	allEntries []filesys.DirEntry
 
 	selChecker     SelChecker
 	sb             strings.Builder
 	highlightStyle lipgloss.Style
 	applyHighlight bool
+	showHidden     bool
 	maxHeight      int
 	maxWidth       int
 	cursorIndex    int
@@ -51,6 +53,7 @@ func New(cwd string,
 		viewPortBuffer: 2,
 		selChecker:     selChecker,
 		applyHighlight: applyHighlight,
+		showHidden:     false,
 	}
 
 	f.SelectFileByName(state.SelectedName)
@@ -59,6 +62,80 @@ func New(cwd string,
 	}
 
 	return f
+}
+
+func (v *View) SetShowHidden(show bool) {
+	// Capture current selection
+	currentEntry, hasSelection := v.CurrEntry()
+	targetName := ""
+	if hasSelection {
+		targetName = currentEntry.Name()
+	}
+
+	v.showHidden = show
+
+	// Determine the best file to select if we are hiding files and the current one is hidden
+	if !v.showHidden && isHidden(targetName) {
+		// Find closest visible neighbor in v.allEntries
+		targetName = v.findClosestVisible(targetName)
+	}
+
+	v.filterEntries()
+
+	// Restore selection
+	if targetName != "" {
+		v.SelectFileByName(targetName)
+	}
+}
+
+func (v *View) findClosestVisible(currentName string) string {
+	// Find index of currentName in allEntries
+	idx := -1
+	for i, e := range v.allEntries {
+		if e.Name() == currentName {
+			idx = i
+			break
+		}
+	}
+	if idx == -1 {
+		return ""
+	}
+
+	// Search forward
+	for i := idx + 1; i < len(v.allEntries); i++ {
+		if !isHidden(v.allEntries[i].Name()) {
+			return v.allEntries[i].Name()
+		}
+	}
+
+	// Search backward if not found forward
+	for i := idx - 1; i >= 0; i-- {
+		if !isHidden(v.allEntries[i].Name()) {
+			return v.allEntries[i].Name()
+		}
+	}
+
+	return ""
+}
+
+func (v *View) filterEntries() {
+	if v.showHidden {
+		v.entries = v.allEntries
+	} else {
+		v.entries = make([]filesys.DirEntry, 0, len(v.allEntries))
+		for _, e := range v.allEntries {
+			if !isHidden(e.Name()) {
+				v.entries = append(v.entries, e)
+			}
+		}
+	}
+
+	if len(v.entries) > 0 {
+		v.cursorIndex = min(v.cursorIndex, len(v.entries)-1)
+	} else {
+		v.cursorIndex = 0
+	}
+	v.setIdealViewPort()
 }
 
 // View renders the FileList.
@@ -77,16 +154,16 @@ func (v *View) View() string {
 
 		// Base style
 		style := lipgloss.NewStyle()
-		
+
 		// Icon
 		icon := util.GetIcon(file.Name(), file.IsDir())
 		iconWidth := lipgloss.Width(icon)
-		
+
 		// Prepare Name with Truncation
 		name := file.Name()
 		// Available width for name: maxWidth - icon - space
-		availableWidth := max(0, v.maxWidth - iconWidth - 1)
-		
+		availableWidth := max(0, v.maxWidth-iconWidth-1)
+
 		if lipgloss.Width(name) > availableWidth {
 			// Truncate
 			// Use runic truncation if possible, but simple string slicing for now
@@ -100,7 +177,7 @@ func (v *View) View() string {
 				name = "" // Too small to show name
 			}
 		}
-		
+
 		displayName := fmt.Sprintf("%s %s", icon, name)
 
 		// Selection (yellow text)
@@ -121,7 +198,7 @@ func (v *View) View() string {
 				Background(theme.Surface2).
 				Foreground(theme.Text).
 				Bold(true)
-			
+
 			// If it was selected, maybe make it distinctive?
 			if selected {
 				style = style.Foreground(theme.Yellow)
@@ -130,7 +207,7 @@ func (v *View) View() string {
 
 		// Render
 		renderedName := style.Render(displayName)
-		
+
 		// Fill remaining width if it's the cursor line to create a bar effect
 		// Note: We pad to v.maxWidth. Since we ensured content <= v.maxWidth,
 		// this padding will fill the rest of the line.
@@ -160,7 +237,8 @@ func (v *View) View() string {
 
 func (v *View) ChDir(dir filesys.Dir, state State) {
 	v.path = dir.Path()
-	v.entries = dir.Entries()
+	v.allEntries = dir.Entries()
+	v.filterEntries()
 
 	v.SelectFileByName(state.SelectedName)
 	if state.ViewportStart != 0 {
@@ -299,4 +377,8 @@ func (v *View) State() State {
 
 func (v *View) SelectedRow() int {
 	return max(0, v.cursorIndex-v.viewportStart)
+}
+
+func isHidden(name string) bool {
+	return strings.HasPrefix(name, ".")
 }

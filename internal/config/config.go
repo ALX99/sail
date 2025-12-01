@@ -31,6 +31,7 @@ type Keymap struct {
 	Copy            string `yaml:"copy"`
 	ToggleAltScreen string `yaml:"toggle_alt_screen"`
 	ToggleParentPane string `yaml:"toggle_parent_pane"`
+	ToggleHidden    string `yaml:"toggle_hidden"`
 }
 
 // GetConfig reads, pareses and returns the configuration
@@ -50,6 +51,7 @@ func GetConfig() (Config, error) {
 				Copy:            "c",
 				ToggleAltScreen: "f",
 				ToggleParentPane: "P",
+				ToggleHidden:    ".",
 			},
 			AltScreen: true,
 		},

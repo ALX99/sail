@@ -64,3 +64,7 @@ func (p *pane) SetDir(dir filesys.Dir, override filelist.State) {
 	p.view.ChDir(dir, state)
 	p.cache[dir.Path()] = p.view.State()
 }
+
+func (p *pane) SetShowHidden(show bool) {
+	p.view.SetShowHidden(show)
+}

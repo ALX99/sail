@@ -30,9 +30,10 @@ type Model struct {
 	termCols int // max width of the terminal window
 	termRows int // max height of the terminal window
 
-	pd, wd, cd   *pane
-	childEnabled bool
+	pd, wd, cd    *pane
+	childEnabled  bool
 	parentEnabled bool
+	showHidden    bool
 
 	wdReqID    int
 	childReqID int
@@ -42,13 +43,14 @@ func New(cwd string, cfg config.Config) *Model {
 	parentDir := filepath.Dir(cwd)
 	selection := filesys.NewSelection()
 	v := &Model{
-		wd:        newPane(cwd, filelist.State{}, selection, true),
-		pd:        newPane(parentDir, filelist.State{}, selection, false),
-		cd:        newPane(cwd, filelist.State{}, selection, false),
-		cwd:       cwd,
-		cfg:       cfg,
-		selection: selection,
+		wd:            newPane(cwd, filelist.State{}, selection, true),
+		pd:            newPane(parentDir, filelist.State{}, selection, false),
+		cd:            newPane(cwd, filelist.State{}, selection, false),
+		cwd:           cwd,
+		cfg:           cfg,
+		selection:     selection,
 		parentEnabled: true,
+		showHidden:    false,
 	}
 
 	return v
@@ -137,6 +139,13 @@ func (v *Model) Update(msg tea.Msg) (*Model, tea.Cmd) {
 		case v.cfg.Settings.Keymap.ToggleParentPane:
 			v.parentEnabled = !v.parentEnabled
 			v.updateLayout()
+			return v, nil
+
+		case v.cfg.Settings.Keymap.ToggleHidden:
+			v.showHidden = !v.showHidden
+			v.pd.SetShowHidden(v.showHidden)
+			v.wd.SetShowHidden(v.showHidden)
+			v.cd.SetShowHidden(v.showHidden)
 			return v, nil
 		}
 
