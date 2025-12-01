@@ -30,6 +30,7 @@ type Keymap struct {
 	Cut             string `yaml:"cut"`
 	Copy            string `yaml:"copy"`
 	ToggleAltScreen string `yaml:"toggle_alt_screen"`
+	ToggleParentPane string `yaml:"toggle_parent_pane"`
 }
 
 // GetConfig reads, pareses and returns the configuration
@@ -48,6 +49,7 @@ func GetConfig() (Config, error) {
 				Cut:             "x",
 				Copy:            "c",
 				ToggleAltScreen: "f",
+				ToggleParentPane: "P",
 			},
 			AltScreen: true,
 		},

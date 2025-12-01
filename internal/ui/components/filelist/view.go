@@ -63,6 +63,10 @@ func New(cwd string,
 
 // View renders the FileList.
 func (v *View) View() string {
+	if v.path == "" {
+		return ""
+	}
+
 	v.sb.Reset()
 	viewportEnd := min(v.viewportStart+v.maxHeight, len(v.entries))
 

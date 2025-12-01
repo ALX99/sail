@@ -32,6 +32,7 @@ type Model struct {
 
 	pd, wd, cd   *pane
 	childEnabled bool
+	parentEnabled bool
 
 	wdReqID    int
 	childReqID int
@@ -47,6 +48,7 @@ func New(cwd string, cfg config.Config) *Model {
 		cwd:       cwd,
 		cfg:       cfg,
 		selection: selection,
+		parentEnabled: true,
 	}
 
 	return v
@@ -131,25 +133,18 @@ func (v *Model) Update(msg tea.Msg) (*Model, tea.Cmd) {
 			v.wd.MoveDown()
 
 			return v, nil
+
+		case v.cfg.Settings.Keymap.ToggleParentPane:
+			v.parentEnabled = !v.parentEnabled
+			v.updateLayout()
+			return v, nil
 		}
 
 	case tea.WindowSizeMsg:
 		v.termCols = msg.Width
 		v.termRows = msg.Height
 
-		parentW, currentW, childW := v.calculatePaneWidths(v.termCols)
-
-		// paneHeight is the full height available for the panes (excluding status bar)
-		paneHeight := v.getFileHeight()
-
-		// We set the bounds for the *content* inside the panes.
-		// Since we use a standard border (takes 2 chars width/height),
-		// we subtract 2 from the available width/height.
-		// We also use parentW, currentW, childW as the full width of the pane block.
-
-		v.pd.SetBounds(max(0, paneHeight), max(0, parentW))
-		v.wd.SetBounds(max(0, paneHeight), max(0, currentW))
-		v.cd.SetBounds(max(0, paneHeight), max(0, childW))
+		v.updateLayout()
 
 		return v, nil
 
@@ -170,9 +165,15 @@ func (v *Model) Update(msg tea.Msg) (*Model, tea.Cmd) {
 		})
 
 		// Select the parent directory in the parent list
-		v.pd.SetDir(msg.ParentDir, filelist.State{
-			SelectedName: filepath.Base(v.wd.Path()),
-		})
+		if msg.ParentDir.Path() == msg.Dir.Path() {
+			v.pd.SetDir(filesys.Dir{}, filelist.State{})
+		} else {
+			v.pd.SetDir(msg.ParentDir, filelist.State{
+				SelectedName: filepath.Base(v.wd.Path()),
+			})
+		}
+
+		v.updateLayout()
 
 		v.childEnabled = false
 		return v, v.loadChildDir()
@@ -214,7 +215,6 @@ func (v *Model) View() string {
 	cStyle := theme.DefaultTheme.ActiveBorder.Width(currentW).Height(paneHeight)
 	dStyle := theme.DefaultTheme.InactiveBorder.Width(childW).Height(paneHeight)
 
-	parentView := pStyle.Render(v.pd.View())
 	currentView := cStyle.Render(v.wd.View())
 
 	var childView string
@@ -224,23 +224,57 @@ func (v *Model) View() string {
 		childView = dStyle.Render("")
 	}
 
-	return lipgloss.JoinHorizontal(lipgloss.Top, parentView, currentView, childView)
+	isRoot := v.cwd == filepath.Dir(v.cwd)
+	if v.parentEnabled && !isRoot {
+		parentView := pStyle.Render(v.pd.View())
+		return lipgloss.JoinHorizontal(lipgloss.Top, parentView, currentView, childView)
+	} else {
+		return lipgloss.JoinHorizontal(lipgloss.Top, currentView, childView)
+	}
 }
 
 func (v *Model) calculatePaneWidths(totalWidth int) (int, int, int) {
-	// Reduce total width by 8 to account for borders (3 panes * 2 borders = 6)
-	// plus a safety margin of 2 to avoid edge wrapping.
-	totalWidth = max(0, totalWidth-8)
+	isRoot := v.cwd == filepath.Dir(v.cwd)
+
+	if !v.parentEnabled || isRoot {
+		// 2 panes: Current, Child
+		// Borders: 2 * 2 = 4. Safety: 2. Total deduction: 6.
+		width := max(0, totalWidth-6)
+
+		// Ratio 2:3 (Current:Child)
+		// Current gets 40%
+		currentW := (width * 2) / 5
+
+		// Child gets 60%
+		childW := width - currentW
+
+		if currentW < 10 {
+			currentW = 10
+		}
+		if childW < 10 {
+			childW = 10
+		}
+
+		if currentW+childW > width {
+			childW = max(0, width-currentW)
+		}
+
+		return 0, currentW, childW
+	}
+
+	// 3 panes
+	// Borders: 3 * 2 = 6. Safety: 2. Total deduction: 8.
+	width := max(0, totalWidth-8)
 
 	// Ratio 1:2:3
 	// Parent gets ~16%
-	parentW := totalWidth / 6
+	parentW := width / 6
 
 	// Current gets ~33%
-	currentW := (totalWidth / 6) * 2
+	currentW := (width / 6) * 2
 
 	// Child gets remainder (~50%) to ensure full width usage
-	childW := totalWidth - parentW - currentW
+	childW := width - parentW - currentW
 
 	// Minimum width checks (optional, to prevent crash or visual glitches)
 	if parentW < 5 {
@@ -254,10 +288,10 @@ func (v *Model) calculatePaneWidths(totalWidth int) (int, int, int) {
 	}
 
 	// Re-adjust child if we forced minimums to avoid overflow (simplified)
-	if parentW+currentW+childW > totalWidth {
+	if parentW+currentW+childW > width {
 		// If overflow, prioritize Current > Parent > Child
 		// This is a basic responsive strategy
-		childW = max(0, totalWidth-parentW-currentW)
+		childW = max(0, width-parentW-currentW)
 	}
 
 	return parentW, currentW, childW
@@ -316,4 +350,13 @@ func (v *Model) getFileHeight() int {
 		return 3
 	}
 	return h
+}
+
+func (v *Model) updateLayout() {
+	parentW, currentW, childW := v.calculatePaneWidths(v.termCols)
+	paneHeight := v.getFileHeight()
+
+	v.pd.SetBounds(max(0, paneHeight), max(0, parentW))
+	v.wd.SetBounds(max(0, paneHeight), max(0, currentW))
+	v.cd.SetBounds(max(0, paneHeight), max(0, childW))
 }
