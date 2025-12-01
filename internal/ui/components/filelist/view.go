@@ -12,8 +12,6 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-const cursor = "▶"
-
 type SelChecker interface {
 	IsSelected(path string) bool
 }
@@ -65,18 +63,15 @@ func New(cwd string,
 }
 
 func (v *View) SetShowHidden(show bool) {
-	// Capture current selection
-	currentEntry, hasSelection := v.CurrEntry()
+	currEntry, ok := v.CurrEntry()
 	targetName := ""
-	if hasSelection {
-		targetName = currentEntry.Name()
+	if ok {
+		targetName = currEntry.Name()
 	}
 
 	v.showHidden = show
 
-	// Determine the best file to select if we are hiding files and the current one is hidden
 	if !v.showHidden && isHidden(targetName) {
-		// Find closest visible neighbor in v.allEntries
 		targetName = v.findClosestVisible(targetName)
 	}
 
@@ -89,7 +84,6 @@ func (v *View) SetShowHidden(show bool) {
 }
 
 func (v *View) findClosestVisible(currentName string) string {
-	// Find index of currentName in allEntries
 	idx := -1
 	for i, e := range v.allEntries {
 		if e.Name() == currentName {
@@ -103,14 +97,14 @@ func (v *View) findClosestVisible(currentName string) string {
 
 	// Search forward
 	for i := idx + 1; i < len(v.allEntries); i++ {
-		if !isHidden(v.allEntries[i].Name()) {
+		if !v.allEntries[i].IsHidden() {
 			return v.allEntries[i].Name()
 		}
 	}
 
-	// Search backward if not found forward
+	// Search backward
 	for i := idx - 1; i >= 0; i-- {
-		if !isHidden(v.allEntries[i].Name()) {
+		if !v.allEntries[i].IsHidden() {
 			return v.allEntries[i].Name()
 		}
 	}
@@ -124,7 +118,7 @@ func (v *View) filterEntries() {
 	} else {
 		v.entries = make([]filesys.DirEntry, 0, len(v.allEntries))
 		for _, e := range v.allEntries {
-			if !isHidden(e.Name()) {
+			if !e.IsHidden() {
 				v.entries = append(v.entries, e)
 			}
 		}

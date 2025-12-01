@@ -14,20 +14,17 @@ import (
 
 var errDur = 1 * time.Second
 
-type (
-	dirSize struct {
-		size int64
-		path string
-	}
-)
+type dirSize struct {
+	size int64
+	path string
+}
 
 type View struct {
 	prevWD string
 	sb     strings.Builder
 	width  int
 
-	wd    filesys.Dir
-	navAt time.Time
+	wd filesys.Dir
 
 	errorAt time.Time
 	error   error
@@ -110,7 +107,7 @@ func (v *View) viewCounts() string {
 }
 
 func (v *View) SetWidth(width int) {
-	v.width = max(0, width-1)
+	v.width = max(0, width)
 }
 
 // SetWD sets a new working directory
@@ -121,7 +118,6 @@ func (v *View) SetWD(dir filesys.Dir) tea.Cmd {
 
 	v.prevWD = v.wd.Path()
 	v.wd = dir
-	v.navAt = time.Now()
 	v.dirSize = 0
 
 	return v.calcDirSize

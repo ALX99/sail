@@ -43,3 +43,7 @@ func (e DirEntry) ResolveSymlink() (DirEntry, error) {
 
 	return newEntry.ResolveSymlink()
 }
+
+func (e DirEntry) IsHidden() bool {
+	return len(e.Name()) > 0 && e.Name()[0] == '.'
+}
