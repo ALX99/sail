@@ -141,6 +141,11 @@ func (v *Model) Update(msg tea.Msg) (*Model, tea.Cmd) {
 			v.updateLayout()
 			return v, nil
 
+		case v.cfg.Settings.Keymap.ToggleMinimalUI:
+			v.cfg.Settings.MinimalUI = !v.cfg.Settings.MinimalUI
+			v.updateLayout()
+			return v, nil
+
 		case v.cfg.Settings.Keymap.ToggleHidden:
 			v.showHidden = !v.showHidden
 			v.pd.SetShowHidden(v.showHidden)
@@ -210,19 +215,7 @@ func (v *Model) View() string {
 	parentW, currentW, childW := v.calculatePaneWidths(v.termCols)
 	paneHeight := v.getFileHeight()
 
-	// Parent Pane
-	// Width/Height on the style sets the dimensions of the *block* (including borders)
-
-	// IMPORTANT: Lipgloss Width/Height on a border style sets the CONTENT width/height if standard border is used?
-	// "The Width and Height methods set the width and height of the block. This includes padding and borders."
-	// If this is true, then Width(parentW) is correct.
-	// And SetBounds(parentW-2) is correct.
-	// Let's try Width(parentW).
-
-	// Override styles to enforce size
-	pStyle := theme.DefaultTheme.InactiveBorder.Width(parentW).Height(paneHeight)
-	cStyle := theme.DefaultTheme.ActiveBorder.Width(currentW).Height(paneHeight)
-	dStyle := theme.DefaultTheme.InactiveBorder.Width(childW).Height(paneHeight)
+	pStyle, cStyle, dStyle := v.paneStyles(parentW, currentW, childW, paneHeight)
 
 	currentView := cStyle.Render(v.wd.View())
 
@@ -247,8 +240,7 @@ func (v *Model) calculatePaneWidths(totalWidth int) (int, int, int) {
 
 	if !v.parentEnabled || isRoot {
 		// 2 panes: Current, Child
-		// Borders: 2 * 2 = 4. Safety: 2. Total deduction: 6.
-		width := max(0, totalWidth-6)
+		width := max(0, totalWidth-v.borderDeduction(2))
 
 		// Ratio 2:3 (Current:Child)
 		// Current gets 40%
@@ -272,8 +264,7 @@ func (v *Model) calculatePaneWidths(totalWidth int) (int, int, int) {
 	}
 
 	// 3 panes
-	// Borders: 3 * 2 = 6. Safety: 2. Total deduction: 8.
-	width := max(0, totalWidth-8)
+	width := max(0, totalWidth-v.borderDeduction(3))
 
 	// Ratio 1:2:3
 	// Parent gets ~16%
@@ -304,6 +295,40 @@ func (v *Model) calculatePaneWidths(totalWidth int) (int, int, int) {
 	}
 
 	return parentW, currentW, childW
+}
+
+func (v *Model) paneStyles(parentW, currentW, childW, paneHeight int) (lipgloss.Style, lipgloss.Style, lipgloss.Style) {
+	if v.cfg.Settings.MinimalUI {
+		divider := theme.DefaultTheme.MinimalDivider
+		return divider.Width(parentW).Height(paneHeight),
+			divider.Width(currentW).Height(paneHeight),
+			lipgloss.NewStyle().Width(childW).Height(paneHeight)
+	}
+
+	return theme.DefaultTheme.InactiveBorder.Width(parentW).Height(paneHeight),
+		theme.DefaultTheme.ActiveBorder.Width(currentW).Height(paneHeight),
+		theme.DefaultTheme.InactiveBorder.Width(childW).Height(paneHeight)
+}
+
+func (v *Model) borderDeduction(paneCount int) int {
+	if v.cfg.Settings.MinimalUI {
+		// Minimal UI draws only the dividers between panes.
+		// Each divider is 1 column wide.
+		return max(0, (paneCount - 1))
+	}
+
+	// Standard UI uses left and right borders on each pane (2 columns per pane)
+	return paneCount * 2
+}
+
+func (v *Model) heightDeduction() int {
+	if v.cfg.Settings.MinimalUI {
+		// Only the status bar occupies a row in minimal mode.
+		return 1
+	}
+
+	// Status bar + top and bottom borders.
+	return 3
 }
 
 func (v *Model) CWD() string {
@@ -351,10 +376,7 @@ func errorCmd(err error) tea.Cmd {
 }
 
 func (v *Model) getFileHeight() int {
-	// Return termRows - 3.
-	// Width wrapping is fixed by subtracting borders in calculatePaneWidths.
-	// We subtract 3 here: 1 for status bar, 2 for borders.
-	h := v.termRows - 3
+	h := v.termRows - v.heightDeduction()
 	if h < 3 {
 		return 3
 	}

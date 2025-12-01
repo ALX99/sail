@@ -36,6 +36,7 @@ type Theme struct {
 	PrimaryBorder  lipgloss.Style
 	ActiveBorder   lipgloss.Style
 	InactiveBorder lipgloss.Style
+	MinimalDivider lipgloss.Style
 
 	SelectedFile lipgloss.Style
 	Cursor       lipgloss.Style
@@ -49,6 +50,7 @@ type Theme struct {
 var DefaultTheme = Theme{
 	ActiveBorder:   lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(Blue),
 	InactiveBorder: lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(Overlay0),
+	MinimalDivider: lipgloss.NewStyle().Border(lipgloss.NormalBorder()).BorderTop(false).BorderBottom(false).BorderLeft(false).BorderForeground(Overlay0),
 
 	SelectedFile: lipgloss.NewStyle().Foreground(Yellow).Bold(true),
 	Cursor:       lipgloss.NewStyle().Background(Surface2).Foreground(Text),

@@ -18,20 +18,22 @@ type Config struct {
 type Settings struct {
 	Keymap    Keymap `yaml:"keymap"`
 	AltScreen bool   `yaml:"alt_screen"`
+	MinimalUI bool   `yaml:"minimal_ui"`
 }
 type Keymap struct {
-	NavUp           string `yaml:"up"`
-	NavDown         string `yaml:"down"`
-	NavLeft         string `yaml:"left"`
-	NavRight        string `yaml:"right"`
-	NavHome         string `yaml:"go_home"`
-	Delete          string `yaml:"delete"`
-	Select          string `yaml:"select"`
-	Cut             string `yaml:"cut"`
-	Copy            string `yaml:"copy"`
-	ToggleAltScreen string `yaml:"toggle_alt_screen"`
+	NavUp            string `yaml:"up"`
+	NavDown          string `yaml:"down"`
+	NavLeft          string `yaml:"left"`
+	NavRight         string `yaml:"right"`
+	NavHome          string `yaml:"go_home"`
+	Delete           string `yaml:"delete"`
+	Select           string `yaml:"select"`
+	Cut              string `yaml:"cut"`
+	Copy             string `yaml:"copy"`
+	ToggleAltScreen  string `yaml:"toggle_alt_screen"`
 	ToggleParentPane string `yaml:"toggle_parent_pane"`
-	ToggleHidden    string `yaml:"toggle_hidden"`
+	ToggleHidden     string `yaml:"toggle_hidden"`
+	ToggleMinimalUI  string `yaml:"toggle_minimal_ui"`
 }
 
 // GetConfig reads, pareses and returns the configuration
@@ -40,20 +42,22 @@ func GetConfig() (Config, error) {
 	cfg := Config{
 		Settings: Settings{
 			Keymap: Keymap{
-				NavUp:           "k",
-				NavDown:         "j",
-				NavLeft:         "h",
-				NavRight:        "l",
-				NavHome:         "~",
-				Delete:          "d",
-				Select:          " ",
-				Cut:             "x",
-				Copy:            "c",
-				ToggleAltScreen: "f",
+				NavUp:            "k",
+				NavDown:          "j",
+				NavLeft:          "h",
+				NavRight:         "l",
+				NavHome:          "~",
+				Delete:           "d",
+				Select:           " ",
+				Cut:              "x",
+				Copy:             "c",
+				ToggleAltScreen:  "f",
 				ToggleParentPane: "P",
-				ToggleHidden:    ".",
+				ToggleHidden:     ".",
+				ToggleMinimalUI:  "M",
 			},
 			AltScreen: true,
+			MinimalUI: false,
 		},
 	}
 
