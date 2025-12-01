@@ -148,7 +148,12 @@ func copyFile(oldPath, newPath string) (err error) {
 	}
 	defer src.Close()
 
-	dst, err := os.Create(newPath)
+	info, err := src.Stat()
+	if err != nil {
+		return err
+	}
+
+	dst, err := os.OpenFile(newPath, os.O_RDWR|os.O_CREATE|os.O_TRUNC, info.Mode())
 	if err != nil {
 		return err
 	}
