@@ -13,6 +13,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/alx99/sail/internal/collator"
 	"github.com/alx99/sail/internal/config"
 	"github.com/alx99/sail/internal/filesys"
 	"github.com/alx99/sail/internal/ui/components/filelist"
@@ -42,10 +43,11 @@ type Model struct {
 func New(cwd string, cfg config.Config) *Model {
 	parentDir := filepath.Dir(cwd)
 	selection := filesys.NewSelection()
+	coll := collator.New()
 	v := &Model{
-		wd:            newPane(cwd, filelist.State{}, selection, true),
-		pd:            newPane(parentDir, filelist.State{}, selection, false),
-		cd:            newPane(cwd, filelist.State{}, selection, false),
+		wd:            newPane(cwd, filelist.State{}, coll, selection, true),
+		pd:            newPane(parentDir, filelist.State{}, coll, selection, false),
+		cd:            newPane(cwd, filelist.State{}, coll, selection, false),
 		cwd:           cwd,
 		cfg:           cfg,
 		selection:     selection,

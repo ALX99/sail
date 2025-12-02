@@ -4,12 +4,14 @@ import (
 	"fmt"
 	"log/slog"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/alx99/sail/internal/filesys"
 	"github.com/alx99/sail/internal/ui/theme"
 	"github.com/alx99/sail/internal/util"
 	"github.com/charmbracelet/lipgloss"
+	"golang.org/x/text/collate"
 )
 
 type SelChecker interface {
@@ -22,6 +24,7 @@ type View struct {
 	entries    []filesys.DirEntry
 	allEntries []filesys.DirEntry
 
+	collator       *collate.Collator
 	selChecker     SelChecker
 	sb             strings.Builder
 	highlightStyle lipgloss.Style
@@ -43,12 +46,14 @@ type State struct {
 func New(cwd string,
 	state State,
 	selChecker SelChecker,
+	coll *collate.Collator,
 	applyHighlight bool,
 ) *View {
 	f := &View{
 		path:           cwd,
 		cursorIndex:    0,
 		viewPortBuffer: 2,
+		collator:       coll,
 		selChecker:     selChecker,
 		applyHighlight: applyHighlight,
 		showHidden:     false,
@@ -232,6 +237,7 @@ func (v *View) View() string {
 func (v *View) ChDir(dir filesys.Dir, state State) {
 	v.path = dir.Path()
 	v.allEntries = dir.Entries()
+	sortEntries(v.collator, v.allEntries)
 	v.filterEntries()
 
 	v.SelectFileByName(state.SelectedName)
@@ -375,4 +381,21 @@ func (v *View) SelectedRow() int {
 
 func isHidden(name string) bool {
 	return strings.HasPrefix(name, ".")
+}
+
+// sortEntries orders entries to match `ls -hNlA --color=auto --group-directories-first`
+// (same as `ls -1A --color=auto --group-directories-first`) using only Go:
+// directories first, then locale-aware name comparison.
+func sortEntries(coll *collate.Collator, entries []filesys.DirEntry) {
+	slices.SortStableFunc(entries, func(e1, e2 filesys.DirEntry) int {
+		aDir := e1.IsDir()
+		bDir := e2.IsDir()
+		if aDir != bDir {
+			if aDir {
+				return -1
+			}
+			return 1
+		}
+		return coll.CompareString(e1.Name(), e2.Name())
+	})
 }
