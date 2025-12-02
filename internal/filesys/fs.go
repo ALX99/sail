@@ -3,9 +3,10 @@ package filesys
 import (
 	"io"
 	"log/slog"
+	"maps"
 	"os"
 	"path/filepath"
-	"sort"
+	"slices"
 	"strings"
 )
 
@@ -51,15 +52,7 @@ func (s *Selection) IsSelected(path string) bool {
 }
 
 func (s *Selection) Paths() []string {
-	if len(s.files) == 0 {
-		return nil
-	}
-	out := make([]string, 0, len(s.files))
-	for path := range s.files {
-		out = append(out, path)
-	}
-	sort.Strings(out)
-	return out
+	return slices.Collect(maps.Keys(s.files))
 }
 
 func DeletePaths(paths []string) error {
