@@ -1,6 +1,7 @@
 package filesys
 
 import (
+	"context"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -47,10 +48,15 @@ func NewDir(path string) (Dir, error) {
 	}, nil
 }
 
-func (d Dir) RealSize() (int64, error) {
+func (d Dir) RealSize(ctx context.Context) (int64, error) {
 	now := time.Now()
 	var size int64
 	err := filepath.Walk(d.path, func(_ string, info os.FileInfo, err error) error {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
 		if err != nil {
 			slog.Warn("Error walking directory, ignoring",
 				"error", err,
@@ -64,7 +70,9 @@ func (d Dir) RealSize() (int64, error) {
 	})
 	slog.Debug("Walk finished",
 		"duration", time.Since(now),
-		"path", d.path)
+		"path", d.path,
+		"err", err,
+	)
 	return size, err
 }
 

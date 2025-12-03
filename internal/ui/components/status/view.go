@@ -1,6 +1,8 @@
 package status
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"math"
 	"strings"
@@ -30,6 +32,8 @@ type View struct {
 	error   error
 
 	dirSize int64
+
+	cancel context.CancelFunc
 }
 
 func New() *View {
@@ -39,7 +43,19 @@ func New() *View {
 }
 
 func (v *View) Init() tea.Cmd {
-	return v.calcDirSize
+	// Only calculate dir size if a working directory has been set.
+	// Otherwise, SetWD will trigger the calculation when called.
+	if v.wd.Path() == "" {
+		return nil
+	}
+
+	var ctx context.Context
+	ctx, v.cancel = context.WithCancel(context.Background())
+	wd := v.wd
+
+	return func() tea.Msg {
+		return v.performCalcDirSize(ctx, wd)
+	}
 }
 
 func (v *View) Update(msg tea.Msg) {
@@ -116,11 +132,20 @@ func (v *View) SetWD(dir filesys.Dir) tea.Cmd {
 		return nil
 	}
 
+	if v.cancel != nil {
+		v.cancel()
+	}
+
+	var ctx context.Context
+	ctx, v.cancel = context.WithCancel(context.Background())
+
 	v.prevWD = v.wd.Path()
 	v.wd = dir
 	v.dirSize = 0
 
-	return v.calcDirSize
+	return func() tea.Msg {
+		return v.performCalcDirSize(ctx, dir)
+	}
 }
 
 func (v *View) SetError(err error) tea.Cmd {
@@ -132,10 +157,13 @@ func (v *View) SetError(err error) tea.Cmd {
 	}
 }
 
-func (v *View) calcDirSize() tea.Msg {
-	size, err := v.wd.RealSize()
+func (v *View) performCalcDirSize(ctx context.Context, dir filesys.Dir) tea.Msg {
+	size, err := dir.RealSize(ctx)
 	if err != nil {
-		return nil
+		if errors.Is(err, context.Canceled) {
+			return nil // Ignore canceled errors
+		}
+		return err
 	}
-	return dirSize{size: size, path: v.wd.Path()}
+	return dirSize{size: size, path: dir.Path()}
 }
