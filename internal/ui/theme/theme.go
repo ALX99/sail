@@ -52,11 +52,14 @@ var DefaultTheme = Theme{
 	InactiveBorder: lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(Overlay0),
 	MinimalDivider: lipgloss.NewStyle().Border(lipgloss.NormalBorder()).BorderTop(false).BorderBottom(false).BorderLeft(false).BorderForeground(Overlay0),
 
-	SelectedFile: lipgloss.NewStyle().Foreground(Yellow).Bold(true),
+	SelectedFile: lipgloss.NewStyle().Foreground(Sky).Bold(true),
 	Cursor:       lipgloss.NewStyle().Background(Surface2).Foreground(Text),
 
 	StatusBar:  lipgloss.NewStyle().Background(Surface0).Foreground(Text),
 	StatusMode: lipgloss.NewStyle().Background(Blue).Foreground(Base).Bold(true).Padding(0, 1),
-	StatusPath: lipgloss.NewStyle().Background(Surface1).Foreground(Text).Padding(0, 1),
-	StatusInfo: lipgloss.NewStyle().Background(Surface0).Foreground(Subtext0).Padding(0, 1),
+	StatusPath: lipgloss.NewStyle().Background(Surface1).Foreground(Text),
+	StatusInfo: lipgloss.NewStyle().
+		Background(Surface2).
+		Foreground(Subtext0).
+		Padding(0, 1),
 }

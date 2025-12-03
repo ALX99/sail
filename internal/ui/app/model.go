@@ -59,7 +59,9 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	// Update Status internal state
-	m.status.Update(msg)
+	if cmd := m.status.Update(msg); cmd != nil {
+		cmds = append(cmds, cmd)
+	}
 
 	// Handle specific messages for status bar coordination
 	switch msg := msg.(type) {
@@ -83,6 +85,8 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// Forward to browser
 	m.browser, cmd = m.browser.Update(msg)
 	cmds = append(cmds, cmd)
+	idx, total := m.browser.SelectionPosition()
+	m.status.SetSelection(idx, total)
 
 	return m, tea.Batch(cmds...)
 }

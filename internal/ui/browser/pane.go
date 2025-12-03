@@ -43,6 +43,10 @@ func (p *pane) SelectedRow() int {
 	return p.view.SelectedRow()
 }
 
+func (p *pane) Position() (int, int) {
+	return p.view.Position()
+}
+
 func (p *pane) CurrEntry() (filesys.DirEntry, bool) {
 	return p.view.CurrEntry()
 }

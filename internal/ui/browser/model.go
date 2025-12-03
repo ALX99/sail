@@ -382,6 +382,11 @@ func errorCmd(err error) tea.Cmd {
 	}
 }
 
+// SelectionPosition returns the 1-based index and total of the current pane.
+func (v *Model) SelectionPosition() (int, int) {
+	return v.wd.Position()
+}
+
 func (v *Model) getFileHeight() int {
 	h := v.termRows - v.heightDeduction()
 	if h < 3 {
