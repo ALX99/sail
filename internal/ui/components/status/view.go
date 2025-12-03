@@ -126,6 +126,11 @@ func (v *View) SetWidth(width int) {
 	v.width = max(0, width)
 }
 
+// Height returns the rendered height of the status bar with current state.
+func (v *View) Height() int {
+	return lipgloss.Height(v.View())
+}
+
 // SetWD sets a new working directory
 func (v *View) SetWD(dir filesys.Dir) tea.Cmd {
 	if v.wd.Path() == dir.Path() {

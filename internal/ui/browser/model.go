@@ -330,12 +330,12 @@ func (v *Model) borderDeduction(paneCount int) int {
 
 func (v *Model) heightDeduction() int {
 	if v.cfg.Settings.MinimalUI {
-		// Only the status bar occupies a row in minimal mode.
-		return 1
+		// Minimal UI uses dividers only; no vertical chrome to deduct.
+		return 0
 	}
 
-	// Status bar + top and bottom borders.
-	return 3
+	// Top and bottom borders of each pane.
+	return 2
 }
 
 func (v *Model) CWD() string {

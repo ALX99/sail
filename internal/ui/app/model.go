@@ -65,6 +65,14 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.status.SetWidth(msg.Width)
+
+		// adjusted height accounting for status bar
+		adjHeight := max(msg.Height-m.status.Height(), 0)
+
+		m.browser, cmd = m.browser.Update(tea.WindowSizeMsg{Width: msg.Width, Height: adjHeight})
+		cmds = append(cmds, cmd)
+
+		return m, tea.Batch(cmds...)
 	case filesys.DirLoadedMsg:
 		cmds = append(cmds, m.status.SetWD(msg.Dir))
 	case error:
