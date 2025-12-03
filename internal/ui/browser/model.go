@@ -175,6 +175,7 @@ func (v *Model) Update(msg tea.Msg) (*Model, tea.Cmd) {
 		}
 
 		v.wd.RememberCurrent()
+		wasRoot := v.cwd == filepath.Dir(v.cwd)
 		v.cwd = msg.Dir.Path()
 
 		v.wd.SetDir(msg.Dir, filelist.State{
@@ -190,7 +191,10 @@ func (v *Model) Update(msg tea.Msg) (*Model, tea.Cmd) {
 			})
 		}
 
-		v.updateLayout()
+		isRoot := v.cwd == filepath.Dir(v.cwd)
+		if wasRoot != isRoot {
+			v.updateLayout()
+		}
 
 		v.childEnabled = false
 		return v, v.loadChildDir()
