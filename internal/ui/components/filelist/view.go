@@ -1,15 +1,14 @@
 package filelist
 
 import (
-	"fmt"
 	"log/slog"
 	"path/filepath"
 	"slices"
 	"strings"
 
 	"github.com/alx99/sail/internal/filesys"
+	sstyle "github.com/alx99/sail/internal/style"
 	"github.com/alx99/sail/internal/ui/theme"
-	"github.com/alx99/sail/internal/util"
 	"github.com/charmbracelet/lipgloss"
 	"golang.org/x/text/collate"
 )
@@ -24,6 +23,7 @@ type View struct {
 	entries    []filesys.DirEntry
 	allEntries []filesys.DirEntry
 
+	styles         *sstyle.Styles
 	collator       *collate.Collator
 	selChecker     SelChecker
 	sb             strings.Builder
@@ -48,6 +48,7 @@ func New(cwd string,
 	selChecker SelChecker,
 	coll *collate.Collator,
 	applyHighlight bool,
+	styles *sstyle.Styles,
 ) *View {
 	f := &View{
 		path:           cwd,
@@ -57,6 +58,7 @@ func New(cwd string,
 		selChecker:     selChecker,
 		applyHighlight: applyHighlight,
 		showHidden:     false,
+		styles:         styles,
 	}
 
 	f.SelectFileByName(state.SelectedName)
@@ -152,10 +154,15 @@ func (v *View) View() string {
 		selected := v.selChecker.IsSelected(filepath.Join(v.path, file.Name()))
 
 		// Base style
-		style := lipgloss.NewStyle()
+		var style lipgloss.Style
+		if selected {
+			style = theme.DefaultTheme.SelectedFile
+		} else {
+			style = v.styles.GetStyle(file)
+		}
 
 		// Icon
-		icon := util.GetIcon(file.Name(), file.IsDir())
+		icon := sstyle.GetIcon(file.Name(), file.IsDir())
 		iconWidth := lipgloss.Width(icon)
 
 		// Prepare Name with Truncation
@@ -177,25 +184,11 @@ func (v *View) View() string {
 			}
 		}
 
-		displayName := fmt.Sprintf("%s %s", icon, name)
-
-		// Selection (yellow text)
-		if selected {
-			style = theme.DefaultTheme.SelectedFile
-		} else {
-			if file.IsDir() {
-				style = style.Foreground(theme.Blue)
-			} else {
-				style = style.Foreground(theme.Text)
-			}
-		}
-
 		// Cursor (highlighted row)
 		if currentFile && v.applyHighlight {
 			// Override background for the cursor line
 			style = style.
 				Background(theme.Surface2).
-				Foreground(theme.Text).
 				Bold(true)
 
 			// If it was selected, maybe make it distinctive?
@@ -205,7 +198,7 @@ func (v *View) View() string {
 		}
 
 		// Render
-		renderedName := style.Render(displayName)
+		renderedName := style.Render(icon + " " + name)
 
 		// Fill remaining width if it's the cursor line to create a bar effect
 		// Note: We pad to v.maxWidth. Since we ensured content <= v.maxWidth,

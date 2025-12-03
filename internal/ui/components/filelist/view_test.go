@@ -9,6 +9,7 @@ import (
 
 	"github.com/alx99/sail/internal/collator"
 	"github.com/alx99/sail/internal/filesys"
+	"github.com/alx99/sail/internal/style"
 )
 
 type stubSel struct{}
@@ -54,7 +55,7 @@ func TestChDirOrdersLikeLs(t *testing.T) {
 	expected := slices.Clone(d.Entries())
 	sortEntries(coll, expected)
 
-	v := New(dir, State{}, stubSel{}, coll, false)
+	v := New(dir, State{}, stubSel{}, coll, false, style.NewStyles(""))
 	v.SetShowHidden(true)
 	v.ChDir(d, State{})
 

@@ -16,6 +16,7 @@ import (
 	"github.com/alx99/sail/internal/collator"
 	"github.com/alx99/sail/internal/config"
 	"github.com/alx99/sail/internal/filesys"
+	"github.com/alx99/sail/internal/style"
 	"github.com/alx99/sail/internal/ui/components/filelist"
 	"github.com/alx99/sail/internal/ui/theme"
 	tea "github.com/charmbracelet/bubbletea"
@@ -40,14 +41,14 @@ type Model struct {
 	childReqID int
 }
 
-func New(cwd string, cfg config.Config) *Model {
+func New(cwd string, cfg config.Config, styles *style.Styles) *Model {
 	parentDir := filepath.Dir(cwd)
 	selection := filesys.NewSelection()
 	coll := collator.New()
 	v := &Model{
-		wd:            newPane(cwd, filelist.State{}, coll, selection, true),
-		pd:            newPane(parentDir, filelist.State{}, coll, selection, false),
-		cd:            newPane(cwd, filelist.State{}, coll, selection, false),
+		wd:            newPane(cwd, filelist.State{}, coll, selection, true, styles),
+		pd:            newPane(parentDir, filelist.State{}, coll, selection, false, styles),
+		cd:            newPane(cwd, filelist.State{}, coll, selection, false, styles),
 		cwd:           cwd,
 		cfg:           cfg,
 		selection:     selection,

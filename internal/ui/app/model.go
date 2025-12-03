@@ -6,6 +6,7 @@ import (
 
 	"github.com/alx99/sail/internal/config"
 	"github.com/alx99/sail/internal/filesys"
+	"github.com/alx99/sail/internal/style"
 	"github.com/alx99/sail/internal/ui/browser"
 	"github.com/alx99/sail/internal/ui/components/status"
 	tea "github.com/charmbracelet/bubbletea"
@@ -20,10 +21,10 @@ type Model struct {
 	printLast string
 }
 
-func New(cwd string, cfg config.Config) *Model {
+func New(cwd string, cfg config.Config, styles *style.Styles) *Model {
 	return &Model{
 		cfg:       cfg,
-		browser:   browser.New(cwd, cfg),
+		browser:   browser.New(cwd, cfg, styles),
 		status:    status.New(),
 		altScreen: cfg.Settings.AltScreen,
 		printLast: cfg.PrintLastWD,

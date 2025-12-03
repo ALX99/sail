@@ -2,6 +2,7 @@ package browser
 
 import (
 	"github.com/alx99/sail/internal/filesys"
+	"github.com/alx99/sail/internal/style"
 	"github.com/alx99/sail/internal/ui/components/filelist"
 	"golang.org/x/text/collate"
 )
@@ -11,9 +12,9 @@ type pane struct {
 	cache map[string]filelist.State
 }
 
-func newPane(path string, state filelist.State, coll *collate.Collator, checker filelist.SelChecker, highlight bool) *pane {
+func newPane(path string, state filelist.State, coll *collate.Collator, checker filelist.SelChecker, highlight bool, styles *style.Styles) *pane {
 	return &pane{
-		view:  filelist.New(path, state, checker, coll, highlight),
+		view:  filelist.New(path, state, checker, coll, highlight, styles),
 		cache: make(map[string]filelist.State, 32),
 	}
 }

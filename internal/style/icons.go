@@ -1,4 +1,4 @@
-package util
+package style
 
 import (
 	"path/filepath"
@@ -15,10 +15,10 @@ const (
 	IconDocker     = ""
 	IconJavascript = ""
 	IconTypescript = ""
-	IconHtml       = ""
-	IconCss        = ""
-	IconJson       = ""
-	IconMd         = ""
+	IconHTML       = ""
+	IconCSS        = ""
+	IconJSON       = ""
+	IconMD         = ""
 	IconImage      = ""
 	IconVideo      = ""
 	IconAudio      = "cn"
@@ -41,13 +41,13 @@ func GetIcon(name string, isDir bool) string {
 	case ".ts", ".tsx":
 		return IconTypescript
 	case ".html", ".htm":
-		return IconHtml
+		return IconHTML
 	case ".css", ".scss", ".sass":
-		return IconCss
+		return IconCSS
 	case ".json", ".yaml", ".yml", ".toml":
-		return IconJson
+		return IconJSON
 	case ".md", ".markdown":
-		return IconMd
+		return IconMD
 	case ".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".bmp":
 		return IconImage
 	case ".mp4", ".mkv", ".mov", ".avi", ".webm":
