@@ -55,6 +55,10 @@ func (s *Selection) Paths() []string {
 	return slices.Collect(maps.Keys(s.files))
 }
 
+func (s *Selection) Count() int {
+	return len(s.files)
+}
+
 func DeletePaths(paths []string) error {
 	for _, path := range unique(paths) {
 		if err := os.RemoveAll(path); err != nil {

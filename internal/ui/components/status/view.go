@@ -38,6 +38,12 @@ type sizeAnimTick struct {
 	seq int
 }
 
+type pillSegment struct {
+	text     string
+	bg       lipgloss.Color
+	minWidth int
+}
+
 type View struct {
 	prevWD string
 	sb     strings.Builder
@@ -51,6 +57,8 @@ type View struct {
 	dirSize  int64
 	selIdx   int
 	selTotal int
+	selCount int
+	selName  string
 
 	cancel context.CancelFunc
 
@@ -111,32 +119,32 @@ func (v *View) View() string {
 		pathStr = v.error.Error() // Show error in path area temporarily
 	}
 
-	// Left cluster: mode + path styled as connected pills
-	left := renderLeadingPills(
-		"NORMAL",
-		pathStr,
-		theme.Blue,
-		theme.Surface1,
-		theme.Base,
-		theme.Surface0,
-	)
-
-	// Info Segments (rendered as a joined pill: left + right)
 	sizeText := v.viewSize()
 	if v.animRunning {
 		sizeText = sizeAnimFrames[v.animIdx]
 	}
-	info := renderConnectedPills(
-		sizeText,
-		v.viewSelection(),
-		theme.Sapphire,
-		theme.Mauve,
+
+	// Left cluster: path styled as a pill
+	left := renderPathPill(
+		pathStr,
+		v.selName,
+		theme.Sky,
+		theme.Surface1,
+		theme.Surface0,
+	)
+
+	// Info segments: selection count + cursor position + size
+	info := renderPills(
+		[]pillSegment{
+			{text: v.viewSelectionCount(), bg: theme.Green},
+			{text: v.viewSelection(), bg: theme.Mauve, minWidth: 7},
+			{text: sizeText, bg: theme.Sapphire, minWidth: 7},
+		},
 		theme.Base,
 		theme.Surface0,
 	)
 
-	// Spacer to push info to the right
-	// Calculate used width
+	// Spacer to push info (and size) to the right
 	usedWidth := lipgloss.Width(left) + lipgloss.Width(info)
 	spacerWidth := max(0, v.width-usedWidth)
 	spacer := theme.DefaultTheme.StatusBar.Width(spacerWidth).Render("")
@@ -176,29 +184,31 @@ func (v *View) viewSelection() string {
 	return fmt.Sprintf("%d/%d", clampedIdx, v.selTotal)
 }
 
+func (v *View) viewSelectionCount() string {
+	return fmt.Sprintf("[%d]", v.selCount)
+}
+
 func (v *View) SetWidth(width int) {
 	v.width = max(0, width)
 }
 
-func renderLeadingPills(modeText, pathText string, modeBG, pathBG, fg, barBG lipgloss.Color) string {
+func renderPathPill(pathText, pathHighlight string, pathHLColor, pathBG, barBG lipgloss.Color) string {
 	leftCap := lipgloss.NewStyle().
-		Foreground(modeBG).
+		Foreground(pathBG).
 		Background(barBG).
 		Render("")
 
-	modeBody := theme.DefaultTheme.StatusMode.
-		Background(modeBG).
-		Foreground(fg).
-		Render(modeText)
+	pathStyle := theme.DefaultTheme.StatusPath.
+		Background(pathBG)
 
-	connector := lipgloss.NewStyle().
-		Foreground(pathBG).
-		Background(modeBG).
-		Render("")
+	if pathHighlight != "" && !strings.HasSuffix(pathText, "/") {
+		pathText += "/"
+	}
 
-	pathBody := theme.DefaultTheme.StatusPath.
-		Background(pathBG).
-		Render(pathText)
+	pathBody := lipgloss.JoinHorizontal(lipgloss.Top,
+		pathStyle.Render(pathText),
+		pathStyle.Foreground(pathHLColor).Render(pathHighlight),
+	)
 
 	rightCap := lipgloss.NewStyle().
 		Foreground(pathBG).
@@ -207,59 +217,60 @@ func renderLeadingPills(modeText, pathText string, modeBG, pathBG, fg, barBG lip
 
 	return lipgloss.JoinHorizontal(lipgloss.Top,
 		leftCap,
-		modeBody,
-		connector,
 		pathBody,
 		rightCap,
 	)
 }
 
-func renderConnectedPills(leftText, rightText string, leftBG, rightBG, fg, barBG lipgloss.Color) string {
-	// Left cap
-	leftCap := lipgloss.NewStyle().
-		Foreground(leftBG).
+func renderPills(pills []pillSegment, fg, barBG lipgloss.Color) string {
+	segments := make([]string, 0, len(pills)*2+1)
+
+	// Opening cap
+	segments = append(segments, lipgloss.NewStyle().
+		Foreground(pills[0].bg).
 		Background(barBG).
-		Render("")
+		Render(""))
 
-	leftBody := theme.DefaultTheme.StatusInfo.
-		Background(leftBG).
-		Foreground(fg).
-		Render(leftText)
+	for i, pill := range pills {
+		if i > 0 {
+			// Connector to next pill
+			conn := lipgloss.NewStyle().
+				Foreground(pills[i].bg).
+				Background(pills[i-1].bg).
+				Render("")
+			segments = append(segments, conn)
+		}
 
-	// Connector uses foreground of next BG and background of current BG for a seamless join.
-	connector := lipgloss.NewStyle().
-		Foreground(rightBG).
-		Background(leftBG).
-		Render("")
+		body := theme.DefaultTheme.StatusInfo.
+			Background(pills[i].bg).
+			Foreground(fg)
 
-	rightWidth := max(6, lipgloss.Width(rightText))
+		if pill.minWidth > 0 {
+			body = body.
+				Padding(0).
+				Width(max(pill.minWidth, lipgloss.Width(pill.text))).
+				AlignHorizontal(lipgloss.Center)
+		}
 
-	rightBody := theme.DefaultTheme.StatusInfo.
-		Background(rightBG).
-		Foreground(fg).
-		Padding(0).
-		Width(rightWidth).
-		AlignHorizontal(lipgloss.Center).
-		Render(rightText)
+		segments = append(segments, body.Render(pill.text))
+	}
 
-	rightCap := lipgloss.NewStyle().
-		Foreground(rightBG).
+	// Closing cap
+	segments = append(segments, lipgloss.NewStyle().
+		Foreground(pills[len(pills)-1].bg).
 		Background(barBG).
-		Render("")
+		Render(""))
 
-	return lipgloss.JoinHorizontal(lipgloss.Top,
-		leftCap,
-		leftBody,
-		connector,
-		rightBody,
-		rightCap,
-	)
+	return lipgloss.JoinHorizontal(lipgloss.Top, segments...)
 }
 
-// SetSelection updates the cursor position display (1-based index / total).
-func (v *View) SetSelection(idx, total int) {
+// SetSelection updates the cursor position display (1-based index / total),
+// tracks the total number of selected files, and stores the current entry name.
+func (v *View) SetSelection(idx, total, selected int, name string) {
 	v.selIdx = max(0, idx)
 	v.selTotal = max(0, total)
+	v.selCount = max(0, selected)
+	v.selName = name
 }
 
 // Height returns the rendered height of the status bar with current state.

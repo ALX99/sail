@@ -85,8 +85,8 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// Forward to browser
 	m.browser, cmd = m.browser.Update(msg)
 	cmds = append(cmds, cmd)
-	idx, total := m.browser.SelectionPosition()
-	m.status.SetSelection(idx, total)
+	idx, total, selected, name := m.browser.SelectionStats()
+	m.status.SetSelection(idx, total, selected, name)
 
 	return m, tea.Batch(cmds...)
 }

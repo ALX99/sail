@@ -382,9 +382,14 @@ func errorCmd(err error) tea.Cmd {
 	}
 }
 
-// SelectionPosition returns the 1-based index and total of the current pane.
-func (v *Model) SelectionPosition() (int, int) {
-	return v.wd.Position()
+// SelectionStats returns the 1-based index, total entries in the current pane,
+// the number of selected files across panes, and the current entry name.
+func (v *Model) SelectionStats() (idx int, total int, selected int, name string) {
+	idx, total = v.wd.Position()
+	if e, ok := v.wd.CurrEntry(); ok {
+		name = e.Name()
+	}
+	return idx, total, v.selection.Count(), name
 }
 
 func (v *Model) getFileHeight() int {
