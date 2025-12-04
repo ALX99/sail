@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"math"
 	"strings"
 	"time"
 
@@ -29,12 +28,12 @@ var sizeAnimFrames = []string{
 	"oOo.oo ??",
 }
 
-type dirSize struct {
+type dirSizeMsg struct {
 	size int64
 	path string
 }
 
-type sizeAnimTick struct {
+type sizeAnimTickMsg struct {
 	seq int
 }
 
@@ -45,11 +44,8 @@ type pillSegment struct {
 }
 
 type View struct {
-	prevWD string
-	sb     strings.Builder
-	width  int
-
-	wd filesys.Dir
+	width int
+	wd    filesys.Dir
 
 	errorAt time.Time
 	error   error
@@ -68,9 +64,7 @@ type View struct {
 }
 
 func New() *View {
-	return &View{
-		sb: strings.Builder{},
-	}
+	return &View{}
 }
 
 func (v *View) Init() tea.Cmd {
@@ -79,27 +73,17 @@ func (v *View) Init() tea.Cmd {
 	if v.wd.Path() == "" {
 		return nil
 	}
-
-	var ctx context.Context
-	ctx, v.cancel = context.WithCancel(context.Background())
-	wd := v.wd
-
-	v.animRunning = true
-	v.animSeq++
-
-	return tea.Batch(v.sizeTick(), func() tea.Msg {
-		return v.performCalcDirSize(ctx, wd)
-	})
+	return v.startSizeCalculation()
 }
 
 func (v *View) Update(msg tea.Msg) tea.Cmd {
 	switch msg := msg.(type) {
-	case dirSize:
+	case dirSizeMsg:
 		if msg.path == v.wd.Path() {
 			v.dirSize = msg.size
 			v.animRunning = false
 		}
-	case sizeAnimTick:
+	case sizeAnimTickMsg:
 		if msg.seq != v.animSeq || !v.animRunning {
 			return nil
 		}
@@ -157,22 +141,16 @@ func (v *View) View() string {
 }
 
 func (v *View) viewSize() string {
-	// check GB
-	if gb := float64(v.dirSize) / math.Pow(1024, 3); gb > 1 {
-		return fmt.Sprintf("%06.2f GB", gb)
+	size := float64(v.dirSize)
+	units := []string{" B", "KB", "MB", "GB", "TB"}
+
+	i := 0
+	for size >= 1024 && i < len(units)-1 {
+		size /= 1024
+		i++
 	}
 
-	// check MB
-	if mb := float64(v.dirSize) / math.Pow(1024, 2); mb > 1 {
-		return fmt.Sprintf("%06.2f MB", mb)
-	}
-
-	// check KB
-	if kb := float64(v.dirSize) / 1024; kb > 1 {
-		return fmt.Sprintf("%06.2f KB", kb)
-	}
-
-	return fmt.Sprintf("%06.2f  B", float64(v.dirSize))
+	return fmt.Sprintf("%06.2f %s", size, units[i])
 }
 
 func (v *View) viewSelection() string {
@@ -190,6 +168,73 @@ func (v *View) viewSelectionCount() string {
 
 func (v *View) SetWidth(width int) {
 	v.width = max(0, width)
+}
+
+func (v *View) SetSelection(idx, total, selected int, name string) {
+	v.selIdx = max(0, idx)
+	v.selTotal = max(0, total)
+	v.selCount = max(0, selected)
+	v.selName = name
+}
+
+func (v *View) Height() int {
+	return lipgloss.Height(v.View())
+}
+
+// SetWD sets a new working directory
+func (v *View) SetWD(dir filesys.Dir) tea.Cmd {
+	if v.wd.Path() == dir.Path() {
+		return nil
+	}
+
+	v.wd = dir
+	v.dirSize = 0
+	v.animIdx = 0
+
+	return v.startSizeCalculation()
+}
+
+func (v *View) SetError(err error) tea.Cmd {
+	v.error = err
+	v.errorAt = time.Now()
+	return func() tea.Msg {
+		time.Sleep(errDur)
+		return struct{}{} // dummy message to trigger update
+	}
+}
+
+func (v *View) startSizeCalculation() tea.Cmd {
+	if v.cancel != nil {
+		v.cancel()
+	}
+
+	var ctx context.Context
+	ctx, v.cancel = context.WithCancel(context.Background())
+
+	v.animRunning = true
+	v.animSeq++
+
+	return tea.Batch(v.sizeTick(), func() tea.Msg {
+		return v.calculateDirSize(ctx, v.wd)
+	})
+}
+
+func (v *View) calculateDirSize(ctx context.Context, dir filesys.Dir) tea.Msg {
+	size, err := dir.RealSize(ctx)
+	if err != nil {
+		if errors.Is(err, context.Canceled) {
+			return nil // Ignore canceled errors
+		}
+		return err
+	}
+	return dirSizeMsg{size: size, path: dir.Path()}
+}
+
+func (v *View) sizeTick() tea.Cmd {
+	seq := v.animSeq
+	return tea.Tick(sizeAnimInterval, func(time.Time) tea.Msg {
+		return sizeAnimTickMsg{seq: seq}
+	})
 }
 
 func renderPathPill(pathText, pathHighlight string, pathHLColor, pathBG, barBG lipgloss.Color) string {
@@ -264,68 +309,3 @@ func renderPills(pills []pillSegment, fg, barBG lipgloss.Color) string {
 	return lipgloss.JoinHorizontal(lipgloss.Top, segments...)
 }
 
-// SetSelection updates the cursor position display (1-based index / total),
-// tracks the total number of selected files, and stores the current entry name.
-func (v *View) SetSelection(idx, total, selected int, name string) {
-	v.selIdx = max(0, idx)
-	v.selTotal = max(0, total)
-	v.selCount = max(0, selected)
-	v.selName = name
-}
-
-// Height returns the rendered height of the status bar with current state.
-func (v *View) Height() int {
-	return lipgloss.Height(v.View())
-}
-
-// SetWD sets a new working directory
-func (v *View) SetWD(dir filesys.Dir) tea.Cmd {
-	if v.wd.Path() == dir.Path() {
-		return nil
-	}
-
-	if v.cancel != nil {
-		v.cancel()
-	}
-
-	var ctx context.Context
-	ctx, v.cancel = context.WithCancel(context.Background())
-
-	v.prevWD = v.wd.Path()
-	v.wd = dir
-	v.dirSize = 0
-	v.animRunning = true
-	v.animIdx = 0
-	v.animSeq++
-
-	return tea.Batch(v.sizeTick(), func() tea.Msg {
-		return v.performCalcDirSize(ctx, dir)
-	})
-}
-
-func (v *View) SetError(err error) tea.Cmd {
-	v.error = err
-	v.errorAt = time.Now()
-	return func() tea.Msg {
-		time.Sleep(errDur)
-		return struct{}{} // dummy message to trigger update
-	}
-}
-
-func (v *View) performCalcDirSize(ctx context.Context, dir filesys.Dir) tea.Msg {
-	size, err := dir.RealSize(ctx)
-	if err != nil {
-		if errors.Is(err, context.Canceled) {
-			return nil // Ignore canceled errors
-		}
-		return err
-	}
-	return dirSize{size: size, path: dir.Path()}
-}
-
-func (v *View) sizeTick() tea.Cmd {
-	seq := v.animSeq
-	return tea.Tick(sizeAnimInterval, func(time.Time) tea.Msg {
-		return sizeAnimTick{seq: seq}
-	})
-}
