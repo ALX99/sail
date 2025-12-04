@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/alx99/sail/internal/filesys"
+	"github.com/alx99/sail/internal/ui/browser"
 	"github.com/alx99/sail/internal/ui/theme"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -43,6 +44,12 @@ type pillSegment struct {
 	minWidth int
 }
 
+type Stats struct {
+	// SelectionCount is the current selection count.
+	SelectionCount int
+	browser.Stats
+}
+
 type View struct {
 	width int
 	wd    filesys.Dir
@@ -55,6 +62,7 @@ type View struct {
 	selTotal int
 	selCount int
 	selName  string
+	selMode  string
 
 	cancel context.CancelFunc
 
@@ -108,14 +116,25 @@ func (v *View) View() string {
 		sizeText = sizeAnimFrames[v.animIdx]
 	}
 
+	// Mode segment
+	var mode string
+	if v.selMode != "" {
+		mode = renderPills([]pillSegment{
+			{text: v.selMode, bg: theme.Lavender},
+		}, theme.Base, theme.Surface0)
+		mode += " "
+	}
+
 	// Left cluster: path styled as a pill
-	left := renderPathPill(
+	path := renderPathPill(
 		pathStr,
 		v.selName,
 		theme.Sky,
 		theme.Surface1,
 		theme.Surface0,
 	)
+
+	left := lipgloss.JoinHorizontal(lipgloss.Top, mode, path)
 
 	// Info segments: selection count + cursor position + size
 	info := renderPills(
@@ -170,11 +189,12 @@ func (v *View) SetWidth(width int) {
 	v.width = max(0, width)
 }
 
-func (v *View) SetSelection(idx, total, selected int, name string) {
-	v.selIdx = max(0, idx)
-	v.selTotal = max(0, total)
-	v.selCount = max(0, selected)
-	v.selName = name
+func (v *View) SetSelection(stats Stats) {
+	v.selIdx = stats.Index + 1
+	v.selTotal = stats.Total
+	v.selCount = stats.SelectionCount
+	v.selName = stats.Name
+	v.selMode = stats.Mode
 }
 
 func (v *View) Height() int {
@@ -308,4 +328,3 @@ func renderPills(pills []pillSegment, fg, barBG lipgloss.Color) string {
 
 	return lipgloss.JoinHorizontal(lipgloss.Top, segments...)
 }
-

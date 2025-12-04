@@ -17,15 +17,18 @@ type Model struct {
 	cfg       config.Config
 	browser   *browser.Model
 	status    *status.View
+	selection *filesys.Selection
 	altScreen bool
 	printLast string
 }
 
 func New(cwd string, cfg config.Config, styles *style.Styles) *Model {
+	selection := filesys.NewSelection()
 	return &Model{
 		cfg:       cfg,
-		browser:   browser.New(cwd, cfg, styles),
+		browser:   browser.New(cwd, cfg, styles, selection),
 		status:    status.New(),
+		selection: selection,
 		altScreen: cfg.Settings.AltScreen,
 		printLast: cfg.PrintLastWD,
 	}
@@ -85,8 +88,15 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// Forward to browser
 	m.browser, cmd = m.browser.Update(msg)
 	cmds = append(cmds, cmd)
-	idx, total, selected, name := m.browser.SelectionStats()
-	m.status.SetSelection(idx, total, selected, name)
+	stats, err := m.browser.Info()
+	if err != nil {
+		cmds = append(cmds, errorCmd(err))
+	} else {
+		m.status.SetSelection(status.Stats{
+			Stats:          stats,
+			SelectionCount: m.selection.Count(),
+		})
+	}
 
 	return m, tea.Batch(cmds...)
 }
@@ -106,4 +116,13 @@ func (m *Model) writeLastWD() error {
 	defer f.Close()
 	_, err = f.WriteString(m.browser.CWD())
 	return err
+}
+
+func errorCmd(err error) tea.Cmd {
+	if err == nil {
+		return nil
+	}
+	return func() tea.Msg {
+		return err
+	}
 }

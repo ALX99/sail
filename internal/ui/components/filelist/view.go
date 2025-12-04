@@ -372,12 +372,11 @@ func (v *View) SelectedRow() int {
 	return max(0, v.cursorIndex-v.viewportStart)
 }
 
-// Position returns a 1-based cursor index and total entries, clamped for empty lists.
 func (v *View) Position() (int, int) {
 	if len(v.entries) == 0 {
 		return 0, 0
 	}
-	return v.cursorIndex + 1, len(v.entries)
+	return v.cursorIndex, len(v.entries)
 }
 
 func isHidden(name string) bool {

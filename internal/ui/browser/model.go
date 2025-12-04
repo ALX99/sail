@@ -41,9 +41,8 @@ type Model struct {
 	childReqID int
 }
 
-func New(cwd string, cfg config.Config, styles *style.Styles) *Model {
+func New(cwd string, cfg config.Config, styles *style.Styles, selection *filesys.Selection) *Model {
 	parentDir := filepath.Dir(cwd)
-	selection := filesys.NewSelection()
 	coll := collator.New()
 	v := &Model{
 		wd:            newPane(cwd, filelist.State{}, coll, selection, true, styles),
@@ -382,14 +381,36 @@ func errorCmd(err error) tea.Cmd {
 	}
 }
 
-// SelectionStats returns the 1-based index, total entries in the current pane,
-// the number of selected files across panes, and the current entry name.
-func (v *Model) SelectionStats() (idx int, total int, selected int, name string) {
-	idx, total = v.wd.Position()
-	if e, ok := v.wd.CurrEntry(); ok {
-		name = e.Name()
+// Stats contains information about the current selection state.
+type Stats struct {
+	// Index is the current index in the directory listing
+	Index int
+	// Total is the total number of entries in the directory listing
+	Total int
+	// Name is the name of the currently selected entry
+	Name string
+	// Mode is the file mode of the currently selected entry
+	Mode string
+}
+
+// Info returns the current dir and selection stats.
+func (v *Model) Info() (Stats, error) {
+	idx, total := v.wd.Position()
+	stats := Stats{
+		Index: idx,
+		Total: total,
 	}
-	return idx, total, v.selection.Count(), name
+
+	if e, ok := v.wd.CurrEntry(); ok {
+		stats.Name = e.Name()
+		info, err := e.Info()
+		if err != nil {
+			return Stats{}, err
+		}
+		stats.Mode = info.Mode().String()
+	}
+
+	return stats, nil
 }
 
 func (v *Model) getFileHeight() int {

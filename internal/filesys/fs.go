@@ -168,9 +168,6 @@ func copyFile(oldPath, newPath string) (err error) {
 }
 
 func unique(paths []string) []string {
-	if len(paths) < 2 {
-		return paths
-	}
 	seen := make(map[string]struct{}, len(paths))
 	out := make([]string, 0, len(paths))
 	for _, path := range paths {
